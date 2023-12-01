@@ -40,16 +40,24 @@ pub fn part_two(input: &str) -> Option<u32> {
             .to_ascii_lowercase()
             .lines()
             .filter_map(|line| {
-                let first = digit_strs
-                    .iter()
-                    .filter_map(|&(s, val)| line.find(s).map(|index| (index, val)))
-                    .min_by_key(|&(index, _)| index)
-                    .map(|(_, val)| val);
-                let last = digit_strs
-                    .iter()
-                    .filter_map(|&(s, val)| line.rfind(s).map(|index| (index, val)))
-                    .max_by_key(|&(index, _)| index)
-                    .map(|(_, val)| val);
+                let first = (0..line.len()).find_map(|start| {
+                    digit_strs.iter().find_map(|(digit_str, val)| {
+                        if line[start..].starts_with(digit_str) {
+                            Some(*val)
+                        } else {
+                            None
+                        }
+                    })
+                });
+                let last = (0..line.len()).rev().find_map(|end| {
+                    digit_strs.iter().find_map(|(digit_str, val)| {
+                        if line[..=end].ends_with(digit_str) {
+                            Some(*val)
+                        } else {
+                            None
+                        }
+                    })
+                });
                 first.zip(last).map(|(a, b)| a * 10 + b)
             })
             .sum(),
