@@ -4,6 +4,9 @@ on:
     # !Please set a different minute than 51 if you enable this!
     # schedule:
     #     - cron: "51 */6 * * *" # Every 6 hours
+    push:
+        branches:
+    	    - "master"
     workflow_dispatch:
 
 jobs:
