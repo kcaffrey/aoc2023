@@ -60,43 +60,62 @@ impl AlmanacMap {
     }
 
     pub fn map_range(&self, input: Range<u64>) -> impl IntoIterator<Item = Range<u64>> + '_ {
-        let mut input = input;
-        let mut output = vec![];
+        AlmanacRangeIterator {
+            almanac: self,
+            input,
+            mapping_index: 0,
+        }
+    }
+}
 
-        // NOTE: we assume the ranges are sorted in ascending order.
-        for range_mapping in &self.ranges {
-            if range_mapping.source_range.start >= input.end {
-                // The input range ends before this range starts, so we can early terminate here.
-                output.push(input);
-                return output;
-            }
-            if input.start < range_mapping.source_range.start {
-                // Part of the input precedes this range, so pass that part through as is.
-                output.push(input.start..range_mapping.source_range.start);
+struct AlmanacRangeIterator<'a> {
+    almanac: &'a AlmanacMap,
+    input: Range<u64>,
+    mapping_index: usize,
+}
+
+impl<'a> Iterator for AlmanacRangeIterator<'a> {
+    type Item = Range<u64>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.input.end <= self.input.start {
+            // There is nothing left in the input, so we are done.
+            return None;
+        }
+        while self.mapping_index < self.almanac.ranges.len() {
+            let mapping = &self.almanac.ranges[self.mapping_index];
+
+            // If any of the input precedes this mapping, then return that portion first as-is.
+            if self.input.start < mapping.source_range.start {
+                let start = self.input.start;
+                let end = std::cmp::min(self.input.end, mapping.source_range.start);
+                self.input.start = end;
+                return Some(start..end);
             }
 
-            // Compute the intersection of the two ranges and add the offset of this mapping.
-            let start = std::cmp::max(input.start, range_mapping.source_range.start);
-            let end = std::cmp::min(input.end, range_mapping.source_range.end);
-            if end > start {
-                output.push(
-                    (start as i64 + range_mapping.offset) as u64
-                        ..(end as i64 + range_mapping.offset) as u64,
+            // If any of the input overlaps the mapping, return the intersection with the offset
+            // added.
+            if self.input.start < mapping.source_range.end {
+                let start = std::cmp::max(self.input.start, mapping.source_range.start);
+                let end = std::cmp::min(self.input.end, mapping.source_range.end);
+                self.input.start = end;
+                self.mapping_index += 1;
+                return Some(
+                    (start as i64 + mapping.offset) as u64..(end as i64 + mapping.offset) as u64,
                 );
-
-                // Adjust the input to be only the part that comes after the range in this mapping.
-                if end < input.end {
-                    input = end..input.end;
-                } else {
-                    return output;
-                }
+            } else {
+                self.mapping_index += 1;
             }
         }
-        if input.end > input.start {
-            // If there is anything leftover after the last mapping, pass that through as-is.
-            output.push(input);
+
+        // If there is anything leftover in the input, return it as-is.
+        if self.input.end > self.input.start {
+            let result = Some(self.input.clone());
+            self.input.start = self.input.end;
+            return result;
         }
-        output
+
+        None
     }
 }
 
