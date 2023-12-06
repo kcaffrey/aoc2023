@@ -62,23 +62,14 @@ impl Race {
         //
         let rt = self.time as f64;
         let bd = self.best_distance as f64;
-        let mut lower_bound = (0.5 * (rt - (rt * rt - 4. * bd).sqrt())).ceil().max(0.) as u64;
-        let mut upper_bound = (0.5 * (rt + (rt * rt - 4. * bd).sqrt())).floor().min(rt) as u64;
-        if self.calculate_distance(lower_bound) <= self.best_distance {
-            lower_bound += 1;
-        }
-        if self.calculate_distance(upper_bound) <= self.best_distance {
-            upper_bound -= 1;
-        }
+        let lower_bound = (0.5 * (rt - (rt * rt - 4. * bd).sqrt())).max(0.);
+        let upper_bound = (0.5 * (rt + (rt * rt - 4. * bd).sqrt())).min(rt);
+        let lower_bound = (lower_bound + 1.).floor() as u64;
+        let upper_bound = (upper_bound - 1.).ceil() as u64;
         if upper_bound < lower_bound {
             return 0;
         }
         upper_bound - lower_bound + 1
-    }
-
-    pub fn calculate_distance(self, charge_time: u64) -> u64 {
-        // See above
-        charge_time * (self.time - charge_time)
     }
 }
 
