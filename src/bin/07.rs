@@ -22,7 +22,7 @@ fn score(input: &str, joker: Option<Card>) -> Option<u32> {
         })
         .collect::<Result<Vec<_>, _>>()
         .expect("should parse hands correctly");
-    hands.sort_by_key(|hand| hand.0);
+    hands.sort_unstable_by_key(|hand| hand.0);
     Some(
         hands
             .into_iter()
