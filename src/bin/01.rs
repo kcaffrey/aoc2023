@@ -5,9 +5,9 @@ pub fn part_one(input: &str) -> Option<u32> {
         input
             .lines()
             .filter_map(|line| {
-                let mut nums = line.chars().filter(|ch| ch.is_numeric());
-                let first = nums.next().and_then(|ch| ch.to_digit(10));
-                let last = nums.next_back().and_then(|ch| ch.to_digit(10)).or(first);
+                let mut nums = line.chars().filter_map(|ch| ch.to_digit(10));
+                let first = nums.next();
+                let last = nums.next_back().or(first);
                 first.zip(last).map(|(a, b)| a * 10 + b)
             })
             .sum(),
@@ -37,22 +37,21 @@ pub fn part_two(input: &str) -> Option<u32> {
     ];
     Some(
         input
-            .to_ascii_lowercase()
             .lines()
             .filter_map(|line| {
                 let first = (0..line.len()).find_map(|start| {
-                    digit_strs.iter().find_map(|(digit_str, val)| {
+                    digit_strs.iter().find_map(|&(digit_str, val)| {
                         if line[start..].starts_with(digit_str) {
-                            Some(*val)
+                            Some(val)
                         } else {
                             None
                         }
                     })
                 });
                 let last = (0..line.len()).rev().find_map(|end| {
-                    digit_strs.iter().find_map(|(digit_str, val)| {
+                    digit_strs.iter().find_map(|&(digit_str, val)| {
                         if line[..=end].ends_with(digit_str) {
-                            Some(*val)
+                            Some(val)
                         } else {
                             None
                         }

@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use smallvec::SmallVec;
+
 advent_of_code::solution!(2);
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -45,7 +47,7 @@ struct Colors {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Game {
     id: u32,
-    reveals: Vec<Colors>,
+    reveals: SmallVec<[Colors; 10]>,
 }
 
 impl Game {
@@ -89,7 +91,7 @@ impl FromStr for Game {
             .trim()
             .split(';')
             .map(|reveal| reveal.parse::<Colors>())
-            .collect::<Result<Vec<Colors>, ParseGameErr>>()?;
+            .collect::<Result<SmallVec<[_; 10]>, _>>()?;
         Ok(Self { id, reveals })
     }
 }

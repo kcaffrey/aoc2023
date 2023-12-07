@@ -18,6 +18,7 @@ dhat-heap = ["dhat"]
 pico-args = "0.5.0"
 dhat = { version = "0.3.2", optional = true }
 enum-ordinalize = "4.2.1"
+smallvec = "1.11.2"
 
 [profile.dhat]
 inherits = "release"
