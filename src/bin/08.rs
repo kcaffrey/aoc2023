@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 use itertools::Itertools;
 use num_integer::Integer;
@@ -15,11 +15,9 @@ pub fn part_one(input: &str) -> Option<u64> {
 pub fn part_two(input: &str) -> Option<u64> {
     let map = parse(input)?;
     Some(
-        map.adjacency
-            .keys()
+        map.nodes
+            .par_iter()
             .copied()
-            .collect::<Vec<_>>()
-            .into_par_iter()
             .filter(Node::ends_with_a)
             .map(|start| map.steps_to_dest(start, Node::ends_with_z))
             .reduce(|| 1, num_integer::lcm),
@@ -37,11 +35,9 @@ pub fn part_three(input: &str) -> Option<u64> {
     // Note that XXZ might not be the first destination reached, as we need a destination that is
     // part of the cycle.
     let mut cycles = map
-        .adjacency
-        .keys()
+        .nodes
+        .par_iter()
         .copied()
-        .collect::<Vec<_>>()
-        .into_par_iter()
         .filter(Node::ends_with_a)
         .map(|start| map.cycle_offset_and_length(start, Node::ends_with_z))
         // NOTE: if any of the cycles don't reach the destination, we can't find a solution,
@@ -110,28 +106,34 @@ enum Direction {
     Right,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
 struct Node(u16);
 
 #[derive(Clone, Debug)]
 struct Map {
     instructions: Vec<Direction>,
-    adjacency: BTreeMap<Node, (Node, Node)>,
+    nodes: Vec<Node>,
+    adjacency: Vec<(Node, Node)>,
 }
 
 impl Map {
+    pub fn next(&self, node: Node, direction: Direction) -> Node {
+        match (
+            direction,
+            self.adjacency
+                .get(node.0 as usize)
+                .expect("node should be valid"),
+        ) {
+            (Direction::Left, &(left, _)) => left,
+            (Direction::Right, &(_, right)) => right,
+        }
+    }
+
     pub fn steps_to_dest<F: Fn(&Node) -> bool>(&self, start: Node, is_dest: F) -> u64 {
         let mut cur = start;
         let mut steps = 0;
-        for instruction in self.instructions.iter().copied().cycle() {
-            let &(left, right) = self
-                .adjacency
-                .get(&cur)
-                .expect("should be in adjacency map");
-            cur = match instruction {
-                Direction::Left => left,
-                Direction::Right => right,
-            };
+        for direction in self.instructions.iter().copied().cycle() {
+            cur = self.next(cur, direction);
             steps += 1;
             if is_dest(&cur) {
                 return steps;
@@ -145,9 +147,10 @@ impl Map {
         start: Node,
         is_dest: F,
     ) -> Option<(u64, u64)> {
-        let mut seen = BTreeMap::from_iter(
-            self.adjacency
-                .keys()
+        let mut seen = HashMap::with_capacity(self.nodes.len() * self.instructions.len());
+        seen.extend(
+            self.nodes
+                .iter()
                 .copied()
                 .cartesian_product(0..self.instructions.len())
                 .map(|(key, instruction_index)| ((key, instruction_index), None)),
@@ -171,15 +174,8 @@ impl Map {
             }
             *cur_seen = Some(offset_steps);
 
-            let (_, instruction) = instructions.next()?;
-            let &(left, right) = self
-                .adjacency
-                .get(&cur)
-                .expect("should be in adjacency map");
-            cur = match instruction {
-                Direction::Left => left,
-                Direction::Right => right,
-            };
+            let (_, direction) = instructions.next()?;
+            cur = self.next(cur, direction);
             offset_steps += 1;
         };
 
@@ -188,15 +184,8 @@ impl Map {
         // the first destination node is and add that to the cycle offset.
         let mut cycle_dest_offset = 0;
         while !is_dest(&cur) {
-            let (_, instruction) = instructions.next()?;
-            let &(left, right) = self
-                .adjacency
-                .get(&cur)
-                .expect("should be in adjacency map");
-            cur = match instruction {
-                Direction::Left => left,
-                Direction::Right => right,
-            };
+            let (_, direction) = instructions.next()?;
+            cur = self.next(cur, direction);
             cycle_dest_offset += 1;
         }
 
@@ -232,7 +221,7 @@ fn parse(input: &str) -> Option<Map> {
             _ => None,
         })
         .collect();
-    let adjacency = adjacency
+    let adjacency_tuples = adjacency
         .lines()
         .filter_map(|line| {
             let (source, dest_strs) = line.split_once(" = ")?;
@@ -240,13 +229,20 @@ fn parse(input: &str) -> Option<Map> {
                 .trim_matches(|ch| ch == '(' || ch == ')')
                 .split_once(", ")?;
             Some((
-                source.parse().ok()?,
+                source.parse::<Node>().ok()?,
                 (left_dest.parse().ok()?, right_dest.parse().ok()?),
             ))
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let mut nodes = Vec::with_capacity(adjacency_tuples.len());
+    let mut adjacency = vec![Default::default(); 26 * 26 * 26];
+    for (node, next_tuple) in adjacency_tuples {
+        nodes.push(node);
+        adjacency[node.0 as usize] = next_tuple;
+    }
     Some(Map {
         instructions,
+        nodes,
         adjacency,
     })
 }
