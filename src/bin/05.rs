@@ -1,5 +1,7 @@
 use std::{ops::Range, str::FromStr};
 
+use itertools::Itertools;
+
 advent_of_code::solution!(5);
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -25,7 +27,7 @@ pub fn part_two(input: &str) -> Option<u32> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Almanac {
     seeds: Vec<u64>,
-    maps: Vec<AlmanacMap>,
+    maps: [AlmanacMap; 7],
 }
 
 impl Almanac {
@@ -156,12 +158,15 @@ impl FromStr for Almanac {
         let maps = parts
             .into_iter()
             .skip(1)
-            .map(|s| {
+            .filter_map(|s| {
                 s.split_once(":\n")
                     .ok_or(ParseAlmanacErr)
                     .and_then(|(_, s)| s.parse::<AlmanacMap>())
+                    .ok()
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect_tuple::<(_, _, _, _, _, _, _)>()
+            .ok_or(ParseAlmanacErr)?
+            .into();
         Ok(Self { seeds, maps })
     }
 }
@@ -183,14 +188,12 @@ impl FromStr for RangeMapping {
     type Err = ParseAlmanacErr;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts = s
+        let parts: [u64; 3] = s
             .split_whitespace()
-            .map(|s| s.parse::<u64>())
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_| ParseAlmanacErr)?;
-        if parts.len() != 3 {
-            return Err(ParseAlmanacErr);
-        }
+            .filter_map(|s| s.parse::<u64>().ok())
+            .collect_tuple::<(_, _, _)>()
+            .ok_or(ParseAlmanacErr)?
+            .into();
         Ok(Self {
             source_range: parts[1]..(parts[1] + parts[2]),
             offset: (parts[0] as i64) - (parts[1] as i64),
