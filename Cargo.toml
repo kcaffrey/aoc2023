@@ -21,6 +21,7 @@ enum-ordinalize = "4.2.1"
 smallvec = "1.11.2"
 itertools = "0.12.0"
 rayon = "1.8.0"
+num-integer = "0.1"
 
 [profile.dhat]
 inherits = "release"
