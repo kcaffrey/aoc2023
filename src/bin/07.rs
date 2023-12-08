@@ -65,8 +65,7 @@ enum HandType {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
 struct Hand {
     hand_type: HandType,
-    cards: [Card; 5],
-    cards_ordering: [usize; 5],
+    cards_ordering: [u8; 5],
     joker: Option<Card>,
 }
 
@@ -79,16 +78,17 @@ impl Hand {
             joker,
             ..Default::default()
         };
+        let mut cards: [Card; 5] = Default::default();
         for (i, card) in s.chars().map(Card::try_from).enumerate() {
             let card = card?;
-            hand.cards[i] = card;
+            cards[i] = card;
             hand.cards_ordering[i] = match (joker, card) {
                 (Some(j), c) if j == c => 0,
-                (Some(_), c) => c.ordinal() as usize + 1,
-                (None, c) => c.ordinal() as usize,
+                (Some(_), c) => c.ordinal() as u8 + 1,
+                (None, c) => c.ordinal() as u8,
             }
         }
-        hand.hand_type = hand_type(hand.cards, joker);
+        hand.hand_type = hand_type(cards, joker);
         Ok(hand)
     }
 }
