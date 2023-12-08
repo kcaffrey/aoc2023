@@ -16,7 +16,7 @@ fn score(input: &str, joker: Option<Card>) -> Option<u32> {
         .map(|line| {
             let (hand_str, bid_str) = line.split_once(' ').ok_or(ParseHandErr)?;
             Ok::<_, ParseHandErr>((
-                Hand::from_str(hand_str, joker)?,
+                Hand::try_from_str(hand_str, joker)?,
                 bid_str.parse::<u32>().map_err(|_| ParseHandErr)?,
             ))
         })
@@ -66,11 +66,12 @@ enum HandType {
 struct Hand {
     hand_type: HandType,
     cards: [Card; 5],
+    cards_ordering: [usize; 5],
     joker: Option<Card>,
 }
 
 impl Hand {
-    pub fn from_str(s: &str, joker: Option<Card>) -> Result<Self, ParseHandErr> {
+    pub fn try_from_str(s: &str, joker: Option<Card>) -> Result<Self, ParseHandErr> {
         if s.len() != 5 {
             return Err(ParseHandErr);
         }
@@ -79,28 +80,16 @@ impl Hand {
             ..Default::default()
         };
         for (i, card) in s.chars().map(Card::try_from).enumerate() {
-            hand.cards[i] = card?;
+            let card = card?;
+            hand.cards[i] = card;
+            hand.cards_ordering[i] = match (joker, card) {
+                (Some(j), c) if j == c => 0,
+                (Some(_), c) => c.ordinal() as usize + 1,
+                (None, c) => c.ordinal() as usize,
+            }
         }
         hand.hand_type = hand_type(hand.cards, joker);
         Ok(hand)
-    }
-
-    fn card_ordering_index(&self, card: Card) -> usize {
-        let Some(joker) = self.joker else {
-            return card.ordinal() as usize;
-        };
-        if joker == card {
-            return 0;
-        }
-        card.ordinal() as usize + 1
-    }
-
-    fn cards_ordering(&self) -> [usize; 5] {
-        let mut ordering_values = [0; 5];
-        for (index, card) in self.cards.iter().copied().enumerate() {
-            ordering_values[index] = self.card_ordering_index(card);
-        }
-        ordering_values
     }
 }
 
@@ -115,7 +104,7 @@ impl Ord for Hand {
             std::cmp::Ordering::Equal => {}
             ord => return ord,
         }
-        self.cards_ordering().cmp(&other.cards_ordering())
+        self.cards_ordering.cmp(&other.cards_ordering)
     }
 }
 
