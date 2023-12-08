@@ -221,29 +221,24 @@ fn parse(input: &str) -> Option<Map> {
             _ => None,
         })
         .collect();
-    let adjacency_tuples = adjacency
-        .lines()
-        .filter_map(|line| {
-            let (source, dest_strs) = line.split_once(" = ")?;
-            let (left_dest, right_dest) = dest_strs
-                .trim_matches(|ch| ch == '(' || ch == ')')
-                .split_once(", ")?;
-            Some((
-                source.parse::<Node>().ok()?,
-                (left_dest.parse().ok()?, right_dest.parse().ok()?),
-            ))
-        })
-        .collect::<Vec<_>>();
-    let mut nodes = Vec::with_capacity(adjacency_tuples.len());
-    let mut adjacency = vec![Default::default(); 26 * 26 * 26];
-    for (node, next_tuple) in adjacency_tuples {
+
+    let mut nodes = Vec::new();
+    let mut adjacency_map = vec![Default::default(); 26 * 26 * 26];
+    for line in adjacency.lines() {
+        let (source, dest_strs) = line.split_once(" = ")?;
+        let (left_dest, right_dest) = dest_strs
+            .trim_matches(|ch| ch == '(' || ch == ')')
+            .split_once(", ")?;
+        let node: Node = source.parse().ok()?;
+        let dest_tuple = (left_dest.parse().ok()?, right_dest.parse().ok()?);
         nodes.push(node);
-        adjacency[node.0 as usize] = next_tuple;
+        adjacency_map[node.0 as usize] = dest_tuple;
     }
+
     Some(Map {
         instructions,
         nodes,
-        adjacency,
+        adjacency: adjacency_map,
     })
 }
 
