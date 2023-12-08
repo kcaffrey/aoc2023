@@ -86,13 +86,14 @@ impl FromStr for Game {
         if game_id.len() < 6 {
             return Err(ParseGameErr);
         }
-        let id = game_id[5..].parse::<u32>().map_err(|_| ParseGameErr)?;
-        let reveals = reveal_str
-            .trim()
-            .split(';')
-            .map(|reveal| reveal.parse::<Colors>())
-            .collect::<Result<SmallVec<[_; 10]>, _>>()?;
-        Ok(Self { id, reveals })
+        Ok(Self {
+            id: game_id[5..].parse::<u32>().map_err(|_| ParseGameErr)?,
+            reveals: reveal_str
+                .trim()
+                .split(';')
+                .map(|reveal| reveal.parse::<Colors>())
+                .collect::<Result<_, _>>()?,
+        })
     }
 }
 
