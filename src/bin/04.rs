@@ -1,9 +1,11 @@
+use rayon::{iter::ParallelIterator, str::ParallelString};
+
 advent_of_code::solution!(4);
 
 pub fn part_one(input: &str) -> Option<u32> {
     Some(
         input
-            .lines()
+            .par_lines()
             .filter_map(winning_number_count)
             .filter(|&c| c > 0)
             .map(|c| 1 << (c - 1))
@@ -32,17 +34,16 @@ fn winning_number_count(card: &str) -> Option<u32> {
     let (_, numbers_part) = card.split_once(':')?;
     let (winning_str, have_str) = numbers_part.split_once('|')?;
     let mut winning_numbers = [false; 100];
-    for s in winning_str.split_whitespace() {
-        winning_numbers[s.parse::<usize>().ok()?] = true;
+    for num in winning_str.split_whitespace().map(|s| s.parse::<usize>()) {
+        winning_numbers[num.ok()?] = true;
     }
-    let mut count = 0;
-    for s in have_str.split_whitespace() {
-        let num = s.parse::<usize>().ok()?;
-        if winning_numbers[num] {
-            count += 1;
-        }
-    }
-    Some(count)
+    Some(
+        have_str
+            .split_whitespace()
+            .filter_map(|s| s.parse::<usize>().ok())
+            .filter(|&num| winning_numbers[num])
+            .count() as u32,
+    )
 }
 
 #[cfg(test)]
