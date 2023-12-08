@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fmt::Display, str::FromStr};
+use std::{collections::BTreeMap, fmt::Display, str::FromStr};
+
+use rayon::prelude::*;
 
 advent_of_code::solution!(8);
 
@@ -10,12 +12,16 @@ pub fn part_one(input: &str) -> Option<u64> {
 
 pub fn part_two(input: &str) -> Option<u64> {
     let map = parse(input)?;
-    map.adjacency
-        .keys()
-        .copied()
-        .filter(Node::ends_with_a)
-        .map(|start| map.steps_to_dest(start, Node::ends_with_z))
-        .reduce(num_integer::lcm)
+    Some(
+        map.adjacency
+            .keys()
+            .copied()
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .filter(Node::ends_with_a)
+            .map(|start| map.steps_to_dest(start, Node::ends_with_z))
+            .reduce(|| 1, num_integer::lcm),
+    )
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -26,6 +32,34 @@ enum Direction {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
 struct Node(u16);
+
+#[derive(Clone, Debug)]
+struct Map {
+    instructions: Vec<Direction>,
+    adjacency: BTreeMap<Node, (Node, Node)>,
+}
+
+impl Map {
+    pub fn steps_to_dest<F: Fn(&Node) -> bool>(&self, start: Node, is_dest: F) -> u64 {
+        let mut cur = start;
+        let mut steps = 0;
+        for instruction in self.instructions.iter().copied().cycle() {
+            let &(left, right) = self
+                .adjacency
+                .get(&cur)
+                .expect("should be in adjacency map");
+            cur = match instruction {
+                Direction::Left => left,
+                Direction::Right => right,
+            };
+            steps += 1;
+            if is_dest(&cur) {
+                return steps;
+            }
+        }
+        unreachable!()
+    }
+}
 
 impl Node {
     pub fn ends_with_a(&self) -> bool {
@@ -38,34 +72,6 @@ impl Node {
 
     pub fn is_zzz(&self) -> bool {
         self.0 == 25 * 26 * 26 + 25 * 26 + 25
-    }
-}
-
-#[derive(Clone, Debug)]
-struct Map {
-    instructions: Vec<Direction>,
-    adjacency: HashMap<Node, (Node, Node)>,
-}
-
-impl Map {
-    pub fn steps_to_dest<F: Fn(&Node) -> bool>(&self, start: Node, is_dest: F) -> u64 {
-        let mut cur = start;
-        let mut steps = 0;
-        let mut instructions = self.instructions.iter().cycle();
-        while !is_dest(&cur) {
-            let instruction = instructions.next().unwrap();
-            let &(left, right) = self
-                .adjacency
-                .get(&cur)
-                .expect("should be in adjacency map");
-            let next = match instruction {
-                Direction::Left => left,
-                Direction::Right => right,
-            };
-            cur = next;
-            steps += 1;
-        }
-        steps
     }
 }
 
