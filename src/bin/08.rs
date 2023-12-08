@@ -70,9 +70,8 @@ impl Map {
 }
 
 fn parse(input: &str) -> Option<Map> {
-    let mut lines = input.lines();
-    let instructions = lines
-        .next()?
+    let (instructions, adjacency) = input.split_once("\n\n")?;
+    let instructions = instructions
         .trim()
         .chars()
         .filter_map(|ch| match ch {
@@ -81,8 +80,8 @@ fn parse(input: &str) -> Option<Map> {
             _ => None,
         })
         .collect();
-    lines.next()?;
-    let adjacency = lines
+    let adjacency = adjacency
+        .lines()
         .filter_map(|line| {
             let (source, dest_strs) = line.split_once(" = ")?;
             let (left_dest, right_dest) = dest_strs
