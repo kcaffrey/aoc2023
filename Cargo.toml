@@ -1,6 +1,6 @@
 [package]
 name = "advent_of_code"
-version = "0.9.4"
+version = "0.10.0"
 authors = ["Felix Spöttel <1682504+fspoettel@users.noreply.github.com>"]
 edition = "2021"
 default-run = "advent_of_code"
@@ -10,13 +10,22 @@ publish = false
 [lib]
 doctest = false
 
+[profile.dhat]
+inherits = "release"
+debug = 1
+
 [features]
-test_lib = []
 dhat-heap = ["dhat"]
+today = ["chrono"]
+test_lib = []
 
 [dependencies]
-pico-args = "0.5.0"
+# Template dependencies
+chrono = { version = "0.4.31", optional = true }
 dhat = { version = "0.3.2", optional = true }
+pico-args = "0.5.0"
+tinyjson = "2.5.1"
+# Solution dependencies
 enum-ordinalize = "4.2.1"
 smallvec = "1.11.2"
 itertools = "0.12.0"
@@ -25,7 +34,3 @@ num-integer = "0.1"
 thiserror = "1.0.50"
 either = "1.9.0"
 tinyvec = "1.6.0"
-
-[profile.dhat]
-inherits = "release"
-debug = 1
