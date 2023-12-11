@@ -13,7 +13,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let mut field = input.parse::<Field>().expect("valid input");
+    let field = input.parse::<Field>().expect("valid input");
 
     // Figure out where the loop is, and construct a new binary map of loop/not loop.
     let (loop_position, _) = field.find_definite_loop_position()?;
@@ -46,25 +46,6 @@ pub fn part_two(input: &str) -> Option<u32> {
             }
         }
         cur = next;
-    }
-
-    // Figure out the missing tile for the start position to make things easier later on.
-    let starting_tile = Tile::pipes().find(|&pipe| {
-        pipe.neighbors(field.starting_position).all(|pos| {
-            let is_in_loop = field
-                .index(pos)
-                .map(|index| is_in_loop[index])
-                .unwrap_or(false);
-            let is_connected = field
-                .pipe_neighbors(pos)
-                .any(|p| p == field.starting_position);
-            is_in_loop && is_connected
-        })
-    })?;
-    if let Some(cell) = field.get_mut(field.starting_position) {
-        *cell = starting_tile;
-    } else {
-        return None;
     }
 
     // Create a helper that will let us determine the size of a connected region bounded
@@ -164,7 +145,6 @@ enum Tile {
     SouthWestPipe,
     SouthEastPipe,
     Ground,
-    StartingPosition,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -220,11 +200,6 @@ impl Field {
         let mut next = ArrayVec::<[(Position, Position); 4]>::new();
         use Tile::*;
         match (self.get(pos), pos.direction_from(last_pos)) {
-            (Some(StartingPosition), _) => {
-                for dir in Direction::cardinal() {
-                    next.push((pos.go(dir), pos));
-                }
-            }
             (Some(HorizontalPipe), Direction::East) => next.push((pos.go(Direction::West), pos)),
             (Some(HorizontalPipe), Direction::West) => next.push((pos.go(Direction::East), pos)),
             (Some(VerticalPipe), Direction::North) => next.push((pos.go(Direction::South), pos)),
@@ -243,10 +218,13 @@ impl Field {
     }
 
     pub fn find_definite_loop_position(&self) -> Option<(Position, u32)> {
-        let mut distance = 0;
+        let mut distance = 1;
         let mut cur = ArrayVec::<[(Position, Position); 4]>::new();
         let mut definite_loop_position = None;
-        cur.push((self.starting_position, self.starting_position));
+        cur.extend(
+            self.pipe_neighbors(self.starting_position)
+                .map(|n| (n, self.starting_position)),
+        );
         while definite_loop_position.is_none() && !cur.is_empty() {
             let mut next = ArrayVec::<[(Position, Position); 4]>::new();
             for (pos, from_pos) in cur
@@ -418,6 +396,9 @@ enum ParseFieldError {
 
     #[error("multiple starting positions were found")]
     MultipleStartingPositions,
+
+    #[error("no valid tile was found for starting position")]
+    NoValidStartingTile,
 }
 
 impl FromStr for Field {
@@ -440,8 +421,9 @@ impl FromStr for Field {
             })
             .enumerate()
             .map(|(index, ch)| {
-                let tile: Tile = ch?.try_into()?;
-                if tile == Tile::StartingPosition {
+                let ch = ch?;
+                let tile: Tile = ch.try_into()?;
+                if ch == 'S' {
                     if starting_position.is_some() {
                         return Err(ParseFieldError::MultipleStartingPositions);
                     }
@@ -450,7 +432,7 @@ impl FromStr for Field {
                 Ok(tile)
             })
             .collect::<Result<_, _>>()?;
-        Ok(Self {
+        let mut field = Self {
             tiles,
             rows,
             cols,
@@ -460,7 +442,18 @@ impl FromStr for Field {
                     row: (index / cols) as isize,
                     col: (index % cols) as isize,
                 })?,
-        })
+        };
+        let starting_position = field.starting_position;
+        let starting_tile = Tile::pipes()
+            .find(|&pipe| {
+                pipe.neighbors(starting_position)
+                    .all(|n| field.pipe_neighbors(n).any(|n2| n2 == starting_position))
+            })
+            .ok_or(ParseFieldError::NoValidStartingTile)?;
+        if let Some(cell) = field.get_mut(starting_position) {
+            *cell = starting_tile;
+        };
+        Ok(field)
     }
 }
 
@@ -476,8 +469,8 @@ impl TryFrom<char> for Tile {
             'J' => NorthWestPipe,
             '7' => SouthWestPipe,
             'F' => SouthEastPipe,
-            '.' => Ground,
-            'S' => StartingPosition,
+            // NOTE: we'll replace the starting tile later, so just return Ground as a placeholder
+            '.' | 'S' => Ground,
             ch => return Err(ParseFieldError::InvalidTileCharacter(ch)),
         })
     }
