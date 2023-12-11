@@ -31,12 +31,12 @@ pub fn compute_expansion(input: &str, expansion_factor: u32) -> Option<u64> {
     // Now compute the sum of pairwise row differences and column differences
     // after expansion.
     Some(
-        compute_diff_sum(&row_counts, expansion_addition)
-            + compute_diff_sum(&col_counts, expansion_addition),
+        compute_diff_sum(row_counts, expansion_addition)
+            + compute_diff_sum(col_counts, expansion_addition),
     )
 }
 
-fn compute_diff_sum(counts: &[i32], expansion_addition: usize) -> u64 {
+fn compute_diff_sum(counts: Vec<i32>, expansion_addition: usize) -> u64 {
     // This helper leverages an algebraic trick to turn the sum of distances
     // into a linear operation:
     // (x[i] - x[0]) + (x[i] - x[1]) + ... + (x[i] - x[i-1]) =
@@ -56,9 +56,14 @@ fn compute_diff_sum(counts: &[i32], expansion_addition: usize) -> u64 {
     let mut total_sum = 0;
     let mut offset = 0;
     let mut galaxy_index = 0;
-    for (i, c) in counts.iter().copied().enumerate() {
+    for (i, c) in counts.into_iter().enumerate() {
         let expanded_rowcol_index = i + offset;
         for _ in 0..c {
+            // NOTE: it's possible to remove this for loop by doing more algebra here,
+            // but the benchmark is only ~200ns faster due to the counts being rather
+            // small for most rows and columns, and the code is significantly less readable
+            // with the optimized version. If the inputs were very large, though, it could
+            // help.
             difference_sum += galaxy_index * expanded_rowcol_index - total_sum;
             total_sum += expanded_rowcol_index;
             galaxy_index += 1;
@@ -66,6 +71,16 @@ fn compute_diff_sum(counts: &[i32], expansion_addition: usize) -> u64 {
         if c == 0 {
             offset += expansion_addition;
         }
+        // Optimized, but unreadable version:
+        // if c > 0 {
+        //     let n = c as usize;
+        //     difference_sum += (n * galaxy_index + n * (n - 1) / 2) * expanded_rowcol_index
+        //         - (n * total_sum + (n - 1) * expanded_rowcol_index);
+        //     total_sum += n * expanded_rowcol_index;
+        //     galaxy_index += n;
+        // } else {
+        //     offset += expansion_addition;
+        // }
     }
     difference_sum as u64
 }
