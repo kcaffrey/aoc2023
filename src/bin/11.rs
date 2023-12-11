@@ -10,12 +10,14 @@ pub fn part_two(input: &str) -> Option<u64> {
 
 pub fn compute_expansion(input: &str, expansion_factor: u32) -> Option<u64> {
     let expansion_addition = expansion_factor.saturating_sub(1) as i32;
-    let width = input.find('\n')?;
-    let mut col_counts = vec![0; width];
-    let mut galaxies = Vec::new();
-    let mut row_offsets = Vec::new();
+    let mut col_counts = Vec::new();
+    let mut galaxies = Vec::with_capacity(input.len());
+    let mut row_offsets = Vec::with_capacity(input.len());
     let mut total_row_offset = 0;
     for (row, line) in input.lines().enumerate() {
+        if col_counts.is_empty() {
+            col_counts.resize(line.len(), 0);
+        }
         let mut row_count = 0;
         for (col, ch) in line.chars().enumerate() {
             if ch == '#' {
