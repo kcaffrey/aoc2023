@@ -62,10 +62,7 @@ fn solve_dp(spring_records: &[u8], damaged_counts: &[u32]) -> u64 {
             if last_record == b'.' || last_record == b'?' {
                 // This record can be operational. The count is the same
                 // as f(damaged_count, end_of_spring).
-                count += end_of_spring
-                    .checked_sub(0)
-                    .map(|index| cur[index])
-                    .unwrap_or(0);
+                count += cur[end_of_spring];
             }
             if last_record == b'#' || last_record == b'?' {
                 // This record can be counted as damaged.
