@@ -58,16 +58,14 @@ pub fn part_two(input: &str) -> Option<u32> {
 
                 let col_mirror = (1..cols).find(|&col_split| {
                     (0..col_split.min(cols - col_split))
-                        .map(|offset| {
-                            (0..rows)
-                                .map(|r| -> u32 {
-                                    (pattern[r * (cols + 1) + col_split - offset - 1]
-                                        != pattern[r * (cols + 1) + col_split + offset])
-                                        .into()
-                                })
-                                .sum::<u32>()
+                        .flat_map(|offset| {
+                            (0..rows).filter(move |&r| {
+                                pattern[r * (cols + 1) + col_split - offset - 1]
+                                    != pattern[r * (cols + 1) + col_split + offset]
+                            })
                         })
-                        .sum::<u32>()
+                        .take(2)
+                        .count()
                         == 1
                 });
                 if let Some(col_mirror) = col_mirror {
@@ -76,16 +74,14 @@ pub fn part_two(input: &str) -> Option<u32> {
 
                 let row_mirror = (1..rows).find(|&row_split| {
                     (0..row_split.min(rows - row_split))
-                        .map(|offset| {
-                            (0..cols)
-                                .map(|c| -> u32 {
-                                    (pattern[(row_split - offset - 1) * (cols + 1) + c]
-                                        != pattern[(row_split + offset) * (cols + 1) + c])
-                                        .into()
-                                })
-                                .sum::<u32>()
+                        .flat_map(|offset| {
+                            (0..cols).filter(move |c| {
+                                pattern[(row_split - offset - 1) * (cols + 1) + c]
+                                    != pattern[(row_split + offset) * (cols + 1) + c]
+                            })
                         })
-                        .sum::<u32>()
+                        .take(2)
+                        .count()
                         == 1
                 });
                 if let Some(row_mirror) = row_mirror {
