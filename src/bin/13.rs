@@ -1,5 +1,3 @@
-use smallvec::SmallVec;
-
 advent_of_code::solution!(13);
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -7,25 +5,20 @@ pub fn part_one(input: &str) -> Option<u32> {
         input
             .split("\n\n")
             .map(|pattern| {
-                let mut row_values = SmallVec::<[u32; 32]>::new();
-                let mut col_values = SmallVec::<[u32; 32]>::new();
-                for line in pattern.lines() {
-                    let mut row_encoded = 0;
-                    if col_values.is_empty() {
-                        col_values.resize(line.len(), 0);
-                    }
-                    for (col, ch) in line.char_indices() {
-                        let encoded_val = if ch == '#' { 1 } else { 0 };
-                        col_values[col] = (col_values[col] << 1) + encoded_val;
-                        row_encoded = (row_encoded << 1) + encoded_val;
-                    }
-                    row_values.push(row_encoded);
-                }
+                let pattern = pattern.as_bytes();
+                let cols = pattern
+                    .iter()
+                    .position(|&ch| ch == b'\n')
+                    .expect("should be more than one row");
+                let rows = (pattern.len() + 1) / (cols + 1);
 
                 // Try column mirroring.
-                let col_mirror = (1..col_values.len()).find(|&col_split| {
-                    (0..col_split.min(col_values.len() - col_split)).all(|offset| {
-                        col_values[col_split - offset - 1] == col_values[col_split + offset]
+                let col_mirror = (1..cols).find(|&col_split| {
+                    (0..col_split.min(cols - col_split)).all(|offset| {
+                        (0..rows).all(|r| {
+                            pattern[r * (cols + 1) + col_split - offset - 1]
+                                == pattern[r * (cols + 1) + col_split + offset]
+                        })
                     })
                 });
                 if let Some(col_mirror) = col_mirror {
@@ -33,9 +26,12 @@ pub fn part_one(input: &str) -> Option<u32> {
                 }
 
                 // Try row mirroring.
-                let row_mirror = (1..row_values.len()).find(|&row_split| {
-                    (0..row_split.min(row_values.len() - row_split)).all(|offset| {
-                        row_values[row_split - offset - 1] == row_values[row_split + offset]
+                let row_mirror = (1..rows).find(|&row_split| {
+                    (0..row_split.min(rows - row_split)).all(|offset| {
+                        (0..cols).all(|c| {
+                            pattern[(row_split - offset - 1) * (cols + 1) + c]
+                                == pattern[(row_split + offset) * (cols + 1) + c]
+                        })
                     })
                 });
                 if let Some(row_mirror) = row_mirror {
@@ -53,27 +49,23 @@ pub fn part_two(input: &str) -> Option<u32> {
         input
             .split("\n\n")
             .map(|pattern| {
-                let mut row_values = SmallVec::<[u32; 32]>::new();
-                let mut col_values = SmallVec::<[u32; 32]>::new();
-                for line in pattern.lines() {
-                    let mut row_encoded = 0u32;
-                    if col_values.is_empty() {
-                        col_values.resize(line.len(), 0u32);
-                    }
-                    for (col, ch) in line.char_indices() {
-                        let encoded_val = if ch == '#' { 1 } else { 0 };
-                        col_values[col] = (col_values[col] << 1) + encoded_val;
-                        row_encoded = (row_encoded << 1) + encoded_val;
-                    }
-                    row_values.push(row_encoded);
-                }
+                let pattern = pattern.as_bytes();
+                let cols = pattern
+                    .iter()
+                    .position(|&ch| ch == b'\n')
+                    .expect("should be more than one row");
+                let rows = (pattern.len() + 1) / (cols + 1);
 
-                // Try column mirroring.
-                let col_mirror = (1..col_values.len()).find(|&col_split| {
-                    (0..col_split.min(col_values.len() - col_split))
+                let col_mirror = (1..cols).find(|&col_split| {
+                    (0..col_split.min(cols - col_split))
                         .map(|offset| {
-                            (col_values[col_split - offset - 1] ^ col_values[col_split + offset])
-                                .count_ones()
+                            (0..rows)
+                                .map(|r| -> u32 {
+                                    (pattern[r * (cols + 1) + col_split - offset - 1]
+                                        != pattern[r * (cols + 1) + col_split + offset])
+                                        .into()
+                                })
+                                .sum::<u32>()
                         })
                         .sum::<u32>()
                         == 1
@@ -82,12 +74,16 @@ pub fn part_two(input: &str) -> Option<u32> {
                     return col_mirror as u32;
                 }
 
-                // Try row mirroring.
-                let row_mirror = (1..row_values.len()).find(|&row_split| {
-                    (0..row_split.min(row_values.len() - row_split))
+                let row_mirror = (1..rows).find(|&row_split| {
+                    (0..row_split.min(rows - row_split))
                         .map(|offset| {
-                            (row_values[row_split - offset - 1] ^ row_values[row_split + offset])
-                                .count_ones()
+                            (0..cols)
+                                .map(|c| -> u32 {
+                                    (pattern[(row_split - offset - 1) * (cols + 1) + c]
+                                        != pattern[(row_split + offset) * (cols + 1) + c])
+                                        .into()
+                                })
+                                .sum::<u32>()
                         })
                         .sum::<u32>()
                         == 1
