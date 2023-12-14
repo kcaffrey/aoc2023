@@ -28,15 +28,14 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let mut platform = input
         .lines()
-        .map(|line| line.chars().collect::<Vec<_>>())
+        .map(|line| line.as_bytes().to_vec())
         .collect::<Vec<_>>();
     let mut count = 0u64;
     let mut seen = HashMap::new();
     loop {
         cycle(&mut platform);
         count += 1;
-        let state = print(&platform);
-        match seen.entry(state) {
+        match seen.entry(stringify(&platform)) {
             Entry::Occupied(val) => {
                 let cycle_length = count - *val.get();
                 let remainder = 1_000_000_000
@@ -56,93 +55,90 @@ pub fn part_two(input: &str) -> Option<u32> {
     Some(load(&platform))
 }
 
-fn north(platform: &mut [Vec<char>]) -> u32 {
-    let mut score = 0;
+fn north(platform: &mut [Vec<u8>]) {
     for col in 0..platform[0].len() {
         let mut empty_spaces = 0;
         for row in 0..platform.len() {
             match platform[row][col] {
-                '.' => empty_spaces += 1,
-                '#' => empty_spaces = 0,
-                'O' => {
+                b'.' => empty_spaces += 1,
+                b'#' => empty_spaces = 0,
+                b'O' if empty_spaces > 0 => {
                     let new_row = row - empty_spaces;
-                    platform[row][col] = '.';
-                    platform[new_row][col] = 'O';
-                    score += platform[0].len() - new_row;
+                    platform[row][col] = b'.';
+                    platform[new_row][col] = b'O';
                 }
-                _ => unreachable!(),
+                _ => {}
             }
         }
     }
-    score as u32
 }
 
-fn west(platform: &mut [Vec<char>]) {
+fn west(platform: &mut [Vec<u8>]) {
     for row in 0..platform.len() {
         let mut empty_spaces = 0;
         for col in 0..platform[0].len() {
             match platform[row][col] {
-                '.' => empty_spaces += 1,
-                '#' => empty_spaces = 0,
-                'O' => {
+                b'.' => empty_spaces += 1,
+                b'#' => empty_spaces = 0,
+                b'O' if empty_spaces > 0 => {
                     let new_col = col - empty_spaces;
-                    platform[row][col] = '.';
-                    platform[row][new_col] = 'O';
+                    platform[row][col] = b'.';
+                    platform[row][new_col] = b'O';
                 }
-                _ => unreachable!(),
+                _ => {}
             }
         }
     }
 }
 
-fn south(platform: &mut [Vec<char>]) {
+fn south(platform: &mut [Vec<u8>]) {
     for col in 0..platform[0].len() {
         let mut empty_spaces = 0;
         for row in (0..platform.len()).rev() {
             match platform[row][col] {
-                '.' => empty_spaces += 1,
-                '#' => empty_spaces = 0,
-                'O' => {
+                b'.' => empty_spaces += 1,
+                b'#' => empty_spaces = 0,
+                b'O' if empty_spaces > 0 => {
                     let new_row = row + empty_spaces;
-                    platform[row][col] = '.';
-                    platform[new_row][col] = 'O';
+                    platform[row][col] = b'.';
+                    platform[new_row][col] = b'O';
                 }
-                _ => unreachable!(),
+                _ => {}
             }
         }
     }
 }
 
-fn east(platform: &mut [Vec<char>]) {
+fn east(platform: &mut [Vec<u8>]) {
     for row in 0..platform.len() {
         let mut empty_spaces = 0;
         for col in (0..platform[0].len()).rev() {
             match platform[row][col] {
-                '.' => empty_spaces += 1,
-                '#' => empty_spaces = 0,
-                'O' => {
+                b'.' => empty_spaces += 1,
+                b'#' => empty_spaces = 0,
+                b'O' if empty_spaces > 0 => {
                     let new_col = col + empty_spaces;
-                    platform[row][col] = '.';
-                    platform[row][new_col] = 'O';
+                    platform[row][col] = b'.';
+                    platform[row][new_col] = b'O';
                 }
-                _ => unreachable!(),
+                _ => {}
             }
         }
     }
 }
 
-fn cycle(platform: &mut [Vec<char>]) {
+fn cycle(platform: &mut [Vec<u8>]) {
     north(platform);
     west(platform);
     south(platform);
     east(platform);
 }
 
-fn load(platform: &Vec<Vec<char>>) -> u32 {
+fn load(platform: &[Vec<u8>]) -> u32 {
     let mut score = 0;
     for (row_idx, row) in platform.iter().enumerate() {
         for ch in row.iter().copied() {
-            if ch == 'O' {
+            if ch == b'O' {
                 score += platform.len() - row_idx;
             }
         }
@@ -150,10 +146,12 @@ fn load(platform: &Vec<Vec<char>>) -> u32 {
     score as u32
 }
 
-fn print(platform: &[Vec<char>]) -> String {
+fn stringify(platform: &[Vec<u8>]) -> String {
     platform
         .iter()
-        .flat_map(|r| r.iter().chain(std::iter::once(&'\n')))
+        .flat_map(|r| r.iter())
+        .copied()
+        .map(char::from)
         .collect::<String>()
 }
 
