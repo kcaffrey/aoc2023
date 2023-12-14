@@ -30,10 +30,10 @@ pub fn part_two(input: &str) -> Option<u32> {
         .lines()
         .map(|line| line.chars().collect::<Vec<_>>())
         .collect::<Vec<_>>();
-    let mut old = platform.clone();
     let mut count = 0u64;
     let mut seen = HashMap::new();
-    while cycle(&mut platform, &mut old) {
+    loop {
+        cycle(&mut platform);
         count += 1;
         let state = print(&platform);
         match seen.entry(state) {
@@ -44,7 +44,7 @@ pub fn part_two(input: &str) -> Option<u32> {
                         * cycle_length
                         + count);
                 for _ in 0..remainder {
-                    cycle(&mut platform, &mut old);
+                    cycle(&mut platform);
                 }
                 break;
             }
@@ -131,21 +131,11 @@ fn east(platform: &mut [Vec<char>]) {
     }
 }
 
-fn cycle(platform: &mut [Vec<char>], old: &mut [Vec<char>]) -> bool {
-    let mut changed = false;
+fn cycle(platform: &mut [Vec<char>]) {
     north(platform);
     west(platform);
     south(platform);
     east(platform);
-    for r in 0..platform.len() {
-        for c in 0..platform[0].len() {
-            if !changed && old[r][c] != platform[r][c] {
-                changed = true;
-            }
-            old[r][c] = platform[r][c];
-        }
-    }
-    changed
 }
 
 fn load(platform: &Vec<Vec<char>>) -> u32 {
