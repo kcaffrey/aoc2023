@@ -1,4 +1,7 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    fmt::{Display, Write},
+};
 
 advent_of_code::solution!(14);
 
@@ -26,16 +29,13 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let mut platform = input
-        .lines()
-        .map(|line| line.as_bytes().to_vec())
-        .collect::<Vec<_>>();
+    let mut platform = Platform::parse(input);
     let mut count = 0u64;
     let mut seen = HashMap::new();
     loop {
-        cycle(&mut platform);
+        let key = platform.cycle();
         count += 1;
-        match seen.entry(stringify(&platform)) {
+        match seen.entry(key) {
             Entry::Occupied(val) => {
                 let cycle_length = count - *val.get();
                 let remainder = 1_000_000_000
@@ -43,7 +43,7 @@ pub fn part_two(input: &str) -> Option<u32> {
                         * cycle_length
                         + count);
                 for _ in 0..remainder {
-                    cycle(&mut platform);
+                    platform.cycle();
                 }
                 break;
             }
@@ -52,107 +52,201 @@ pub fn part_two(input: &str) -> Option<u32> {
             }
         }
     }
-    Some(load(&platform))
+    Some(platform.load())
 }
 
-fn north(platform: &mut [Vec<u8>]) {
-    for col in 0..platform[0].len() {
-        let mut empty_spaces = 0;
-        for row in 0..platform.len() {
-            match platform[row][col] {
-                b'.' => empty_spaces += 1,
-                b'#' => empty_spaces = 0,
-                b'O' if empty_spaces > 0 => {
-                    let new_row = row - empty_spaces;
-                    platform[row][col] = b'.';
-                    platform[new_row][col] = b'O';
+#[derive(Debug, Default, Clone)]
+struct Platform {
+    width: u8,
+    height: u8,
+    round_rocks: Vec<Coordinate>,
+    distance_to_cubed_rocks: Vec<Vec<CachedDistance>>,
+    rock_stacks: Vec<Vec<RockStack>>,
+    iteration: u16,
+}
+
+impl Platform {
+    pub fn parse(input: &str) -> Self {
+        let grid = input
+            .lines()
+            .map(|line| line.chars().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        let width = grid[0].len() as u8;
+        let height = grid.len() as u8;
+        let mut round_rocks = Vec::new();
+        let mut distance_to_cubed_rocks =
+            vec![vec![CachedDistance::default(); grid[0].len()]; grid.len()];
+        for row in 0..width as usize {
+            for col in 0..height as usize {
+                if grid[row][col] == 'O' {
+                    round_rocks.push(Coordinate::new(row as u8, col as u8));
                 }
-                _ => {}
+                let north = (0..)
+                    .find(|&d| d > row || grid[row - d][col] == '#')
+                    .unwrap() as u8;
+                let south = (0..)
+                    .find(|&d| row + d >= height as usize || grid[row + d][col] == '#')
+                    .unwrap() as u8;
+                let west = (0..)
+                    .find(|&d| d > col || grid[row][col - d] == '#')
+                    .unwrap() as u8;
+                let east = (0..)
+                    .find(|&d| col + d >= width as usize || grid[row][col + d] == '#')
+                    .unwrap() as u8;
+                distance_to_cubed_rocks[row][col] = CachedDistance {
+                    north,
+                    south,
+                    west,
+                    east,
+                };
             }
+        }
+        let rock_stacks = vec![vec![RockStack::default(); grid[0].len()]; grid.len()];
+        Self {
+            round_rocks,
+            distance_to_cubed_rocks,
+            rock_stacks,
+            iteration: 0,
+            width,
+            height,
+        }
+    }
+
+    pub fn cycle(&mut self) -> u128 {
+        let mut key = 0;
+        self.tilt(Direction::North);
+        key += (self.load() as u128) << 96;
+        self.tilt(Direction::West);
+        key += (self.load() as u128) << 64;
+        self.tilt(Direction::South);
+        key += (self.load() as u128) << 32;
+        self.tilt(Direction::East);
+        key += self.load() as u128;
+        key
+    }
+
+    fn tilt(&mut self, dir: Direction) {
+        self.iteration += 1;
+        for rock in &mut self.round_rocks {
+            let distance =
+                self.distance_to_cubed_rocks[rock.row as usize][rock.col as usize].get(dir);
+            let cubed_rock = rock
+                .move_in_dir(dir, distance)
+                .limit_to(self.height - 1, self.width - 1);
+            let stack = &mut self.rock_stacks[cubed_rock.row as usize][cubed_rock.col as usize];
+            if stack.iteration != self.iteration {
+                stack.iteration = self.iteration;
+                stack.count = 0;
+            }
+            if stack.count > distance - 1 {
+                let total_move_distance = stack.count - distance + 1;
+                *rock = rock.move_in_dir(dir.rev(), total_move_distance);
+            } else {
+                let total_move_distance = distance - 1 - stack.count;
+                *rock = rock.move_in_dir(dir, total_move_distance);
+            }
+            stack.count += 1;
+        }
+    }
+
+    fn load(&self) -> u32 {
+        self.round_rocks
+            .iter()
+            .map(|&r| (self.height - r.row) as u32)
+            .sum()
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum Direction {
+    North,
+    West,
+    South,
+    East,
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct Coordinate {
+    row: u8,
+    col: u8,
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
+struct CachedDistance {
+    north: u8,
+    south: u8,
+    west: u8,
+    east: u8,
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
+struct RockStack {
+    iteration: u16,
+    count: u8,
+}
+
+impl Coordinate {
+    const fn new(row: u8, col: u8) -> Self {
+        Self { row, col }
+    }
+
+    const fn move_in_dir(self, dir: Direction, distance: u8) -> Self {
+        match dir {
+            Direction::North => Self::new(self.row.saturating_sub(distance), self.col),
+            Direction::South => Self::new(self.row + distance, self.col),
+            Direction::West => Self::new(self.row, self.col.saturating_sub(distance)),
+            Direction::East => Self::new(self.row, self.col + distance),
+        }
+    }
+
+    fn limit_to(self, max_row: u8, max_col: u8) -> Self {
+        Self::new(self.row.min(max_row), self.col.min(max_col))
+    }
+}
+
+impl CachedDistance {
+    const fn get(self, dir: Direction) -> u8 {
+        match dir {
+            Direction::North => self.north,
+            Direction::West => self.west,
+            Direction::South => self.south,
+            Direction::East => self.east,
         }
     }
 }
 
-fn west(platform: &mut [Vec<u8>]) {
-    for row in 0..platform.len() {
-        let mut empty_spaces = 0;
-        for col in 0..platform[0].len() {
-            match platform[row][col] {
-                b'.' => empty_spaces += 1,
-                b'#' => empty_spaces = 0,
-                b'O' if empty_spaces > 0 => {
-                    let new_col = col - empty_spaces;
-                    platform[row][col] = b'.';
-                    platform[row][new_col] = b'O';
+impl Direction {
+    const fn rev(self) -> Self {
+        match self {
+            Self::North => Self::South,
+            Self::West => Self::East,
+            Self::South => Self::North,
+            Self::East => Self::West,
+        }
+    }
+}
+
+impl Display for Platform {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut grid = vec![vec!['.'; self.width as usize]; self.height as usize];
+        for row in 0..self.height {
+            for col in 0..self.width {
+                if self.distance_to_cubed_rocks[row as usize][col as usize].north == 0 {
+                    grid[row as usize][col as usize] = '#';
                 }
-                _ => {}
             }
         }
-    }
-}
-
-fn south(platform: &mut [Vec<u8>]) {
-    for col in 0..platform[0].len() {
-        let mut empty_spaces = 0;
-        for row in (0..platform.len()).rev() {
-            match platform[row][col] {
-                b'.' => empty_spaces += 1,
-                b'#' => empty_spaces = 0,
-                b'O' if empty_spaces > 0 => {
-                    let new_row = row + empty_spaces;
-                    platform[row][col] = b'.';
-                    platform[new_row][col] = b'O';
-                }
-                _ => {}
-            }
+        for rock in &self.round_rocks {
+            grid[rock.row as usize][rock.col as usize] = 'O';
         }
-    }
-}
-
-fn east(platform: &mut [Vec<u8>]) {
-    for row in 0..platform.len() {
-        let mut empty_spaces = 0;
-        for col in (0..platform[0].len()).rev() {
-            match platform[row][col] {
-                b'.' => empty_spaces += 1,
-                b'#' => empty_spaces = 0,
-                b'O' if empty_spaces > 0 => {
-                    let new_col = col + empty_spaces;
-                    platform[row][col] = b'.';
-                    platform[row][new_col] = b'O';
-                }
-                _ => {}
+        for row in grid {
+            for ch in row {
+                f.write_char(ch)?;
             }
+            f.write_char('\n')?;
         }
+        Ok(())
     }
-}
-
-fn cycle(platform: &mut [Vec<u8>]) {
-    north(platform);
-    west(platform);
-    south(platform);
-    east(platform);
-}
-
-fn load(platform: &[Vec<u8>]) -> u32 {
-    let mut score = 0;
-    for (row_idx, row) in platform.iter().enumerate() {
-        for ch in row.iter().copied() {
-            if ch == b'O' {
-                score += platform.len() - row_idx;
-            }
-        }
-    }
-    score as u32
-}
-
-fn stringify(platform: &[Vec<u8>]) -> String {
-    platform
-        .iter()
-        .flat_map(|r| r.iter())
-        .copied()
-        .map(char::from)
-        .collect::<String>()
 }
 
 #[cfg(test)]
