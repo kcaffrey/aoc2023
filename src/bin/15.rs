@@ -1,18 +1,18 @@
 advent_of_code::solution!(15);
 
 pub fn part_one(input: &str) -> Option<u32> {
-    Some(
-        input
-            .trim()
-            .as_bytes()
-            .split(|&ch| ch == b',')
-            .map(|s| {
-                s.iter()
-                    .copied()
-                    .fold(0, |acc, ch| ((acc + ch as u32) * 17) % 256)
-            })
-            .sum(),
-    )
+    let mut hash_sum = 0u32;
+    let mut cur_hash = 0u8;
+    for ch in input.as_bytes() {
+        match *ch {
+            b',' | b'\n' => {
+                hash_sum += cur_hash as u32;
+                cur_hash = 0;
+            }
+            ch => cur_hash = cur_hash.wrapping_add(ch).wrapping_mul(17),
+        }
+    }
+    Some(hash_sum)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
