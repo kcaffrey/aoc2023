@@ -3,12 +3,12 @@ advent_of_code::solution!(15);
 pub fn part_one(input: &str) -> Option<u32> {
     Some(
         input
+            .trim()
             .as_bytes()
             .split(|&ch| ch == b',')
             .map(|s| {
                 s.iter()
                     .copied()
-                    .filter(|&ch| ch != b'\n')
                     .fold(0, |acc, ch| ((acc + ch as u32) * 17) % 256)
             })
             .sum(),
@@ -18,6 +18,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let mut map = LensMap::new();
     for op in input
+        .trim()
         .as_bytes()
         .split(|&ch| ch == b',')
         .map(Operation::from)
