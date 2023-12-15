@@ -124,7 +124,7 @@ impl Platform {
 
     fn tilt(&mut self, dir: Direction) {
         self.iteration += 1;
-        let mut stacks = vec![vec![0; self.width as usize]; self.height as usize];
+        let mut stacks = [[0; 100]; 100];
         for rock in &mut self.round_rocks {
             let distance =
                 self.distance_to_cubed_rocks[rock.row as usize][rock.col as usize].get(dir);
