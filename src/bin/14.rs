@@ -61,7 +61,6 @@ struct Platform {
     height: u8,
     round_rocks: Vec<Coordinate>,
     distance_to_cubed_rocks: Vec<Vec<CachedDistance>>,
-    rock_stacks: Vec<Vec<RockStack>>,
     iteration: u16,
 }
 
@@ -101,11 +100,9 @@ impl Platform {
                 };
             }
         }
-        let rock_stacks = vec![vec![RockStack::default(); grid[0].len()]; grid.len()];
         Self {
             round_rocks,
             distance_to_cubed_rocks,
-            rock_stacks,
             iteration: 0,
             width,
             height,
@@ -127,25 +124,22 @@ impl Platform {
 
     fn tilt(&mut self, dir: Direction) {
         self.iteration += 1;
+        let mut stacks = vec![vec![0; self.width as usize]; self.height as usize];
         for rock in &mut self.round_rocks {
             let distance =
                 self.distance_to_cubed_rocks[rock.row as usize][rock.col as usize].get(dir);
             let cubed_rock = rock
                 .move_in_dir(dir, distance)
                 .limit_to(self.height - 1, self.width - 1);
-            let stack = &mut self.rock_stacks[cubed_rock.row as usize][cubed_rock.col as usize];
-            if stack.iteration != self.iteration {
-                stack.iteration = self.iteration;
-                stack.count = 0;
-            }
-            if stack.count > distance - 1 {
-                let total_move_distance = stack.count - distance + 1;
+            let stack = &mut stacks[cubed_rock.row as usize][cubed_rock.col as usize];
+            if *stack > distance - 1 {
+                let total_move_distance = *stack - distance + 1;
                 *rock = rock.move_in_dir(dir.rev(), total_move_distance);
             } else {
-                let total_move_distance = distance - 1 - stack.count;
+                let total_move_distance = distance - 1 - *stack;
                 *rock = rock.move_in_dir(dir, total_move_distance);
             }
-            stack.count += 1;
+            *stack += 1;
         }
     }
 
