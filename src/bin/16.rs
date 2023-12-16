@@ -27,19 +27,16 @@ pub fn part_two(input: &str) -> Option<u32> {
 }
 
 fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
-    let mut energized = vec![vec![false; grid.width]; grid.height];
-    let mut energized_count = 1;
+    let mut energized = vec![false; grid.height * grid.width];
     let mut queue = VecDeque::new();
-    energized[start.row][start.col] = true;
+    energized[start.row * grid.width + start.col] = true;
     queue.push_back((start, start_dir));
     while let Some((cur, dir)) = queue.pop_front() {
         for (next, next_dir) in grid.neighbors(cur, dir) {
             if let Some(tile) = grid.get_tile(next) {
-                let was_energized = energized[next.row][next.col];
-                energized[next.row][next.col] = true;
-                if !was_energized {
-                    energized_count += 1;
-                }
+                let i = next.row * grid.width + next.col;
+                let was_energized = energized[i];
+                energized[i] = true;
                 match (tile, was_energized) {
                     // If we hit a splitter that was already energized, we know we are entering a loop so we can stop
                     (Tile::HorizontalSplitter, true) | (Tile::VerticalSplitter, true) => {}
@@ -50,7 +47,7 @@ fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
             }
         }
     }
-    energized_count
+    energized.into_iter().filter(|&e| e).count() as u32
 }
 
 struct Grid {
