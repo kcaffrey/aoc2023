@@ -27,21 +27,24 @@ pub fn part_two(input: &str) -> Option<u32> {
 }
 
 fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
-    let mut visited = HashSet::new();
-    let mut visited_coords = HashSet::new();
+    let mut energized = HashSet::new();
     let mut queue = VecDeque::new();
-    visited.insert((start, start_dir));
-    visited_coords.insert(start);
+    energized.insert(start);
     queue.push_back((start, start_dir));
     while let Some((cur, dir)) = queue.pop_front() {
         for (next, next_dir) in grid.neighbors(cur, dir) {
-            if visited.insert((next, next_dir)) {
-                visited_coords.insert(next);
-                queue.push_back((next, next_dir));
+            if let Some(tile) = grid.get_tile(next) {
+                match (tile, energized.insert(next)) {
+                    // If we hit a splitter that was already energized, we know we are entering a loop so we can stop
+                    (Tile::HorizontalSplitter, false) | (Tile::VerticalSplitter, false) => {}
+
+                    // Otherwise keep going
+                    _ => queue.push_back((next, next_dir)),
+                }
             }
         }
     }
-    visited_coords.len() as u32
+    energized.len() as u32
 }
 
 struct Grid {
@@ -85,7 +88,7 @@ impl Grid {
             .filter_map(move |dir| self.move_in_dir(coord, dir).map(|c| (c, dir)))
     }
 
-    fn get_tile(&self, coord: Coordinate) -> Option<Tile> {
+    pub fn get_tile(&self, coord: Coordinate) -> Option<Tile> {
         self.tiles
             .get(coord.row)
             .and_then(|row| row.get(coord.col))
