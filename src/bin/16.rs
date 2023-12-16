@@ -30,46 +30,59 @@ fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
     let mut energized = vec![false; grid.height * grid.width];
     let mut queue = VecDeque::with_capacity(1_000);
     queue.push_back((start, start_dir));
-    while let Some((cur, dir)) = queue.pop_front() {
+    while let Some((mut cur, mut dir)) = queue.pop_front() {
         use Direction::{East, North, South, West};
         use Tile::{Empty, HorizontalSplitter, LeftMirror, RightMirror, VerticalSplitter};
 
-        let i = cur.row * grid.width + cur.col;
-        let tile = grid.tiles[i];
-        let was_energized = energized[i];
-        if was_energized && (tile == HorizontalSplitter || tile == VerticalSplitter) {
-            continue;
-        }
-        energized[i] = true;
+        let mut i = cur.row * grid.width + cur.col;
+        let mut tile = grid.tiles[i];
+        let mut was_energized = energized[i];
+        while !was_energized || !(tile == HorizontalSplitter || tile == VerticalSplitter) {
+            energized[i] = true;
 
-        let mut do_next = |next_dir| {
-            let next = match (cur, next_dir) {
-                (c, North) if c.row == 0 => return,
-                (c, South) if c.row + 1 == grid.height => return,
-                (c, West) if c.col == 0 => return,
-                (c, East) if c.col + 1 == grid.width => return,
-                (_, North) => coord!(cur.row - 1, cur.col),
-                (_, South) => coord!(cur.row + 1, cur.col),
-                (_, East) => coord!(cur.row, cur.col + 1),
-                (_, West) => coord!(cur.row, cur.col - 1),
+            let get_next = |next_dir| {
+                Some((
+                    match (cur, next_dir) {
+                        (c, North) if c.row == 0 => return None,
+                        (c, South) if c.row + 1 == grid.height => return None,
+                        (c, West) if c.col == 0 => return None,
+                        (c, East) if c.col + 1 == grid.width => return None,
+                        (_, North) => coord!(cur.row - 1, cur.col),
+                        (_, South) => coord!(cur.row + 1, cur.col),
+                        (_, East) => coord!(cur.row, cur.col + 1),
+                        (_, West) => coord!(cur.row, cur.col - 1),
+                    },
+                    next_dir,
+                ))
             };
-            queue.push_back((next, next_dir));
-        };
-        match (tile, dir) {
-            (Empty, _) => do_next(dir),
-            (HorizontalSplitter, East) | (HorizontalSplitter, West) => do_next(dir),
-            (VerticalSplitter, North) | (VerticalSplitter, South) => do_next(dir),
-            (LeftMirror, East) | (RightMirror, West) => do_next(South),
-            (LeftMirror, West) | (RightMirror, East) => do_next(North),
-            (LeftMirror, North) | (RightMirror, South) => do_next(West),
-            (LeftMirror, South) | (RightMirror, North) => do_next(East),
-            (HorizontalSplitter, _) => {
-                do_next(West);
-                do_next(East);
-            }
-            (VerticalSplitter, _) => {
-                do_next(North);
-                do_next(South);
+            if let Some((next, next_dir)) = match (tile, dir) {
+                (Empty, _) => get_next(dir),
+                (HorizontalSplitter, East) | (HorizontalSplitter, West) => get_next(dir),
+                (VerticalSplitter, North) | (VerticalSplitter, South) => get_next(dir),
+                (LeftMirror, East) | (RightMirror, West) => get_next(South),
+                (LeftMirror, West) | (RightMirror, East) => get_next(North),
+                (LeftMirror, North) | (RightMirror, South) => get_next(West),
+                (LeftMirror, South) | (RightMirror, North) => get_next(East),
+                (HorizontalSplitter, _) => {
+                    if let Some(n) = get_next(West) {
+                        queue.push_back(n);
+                    }
+                    get_next(East)
+                }
+                (VerticalSplitter, _) => {
+                    if let Some(n) = get_next(North) {
+                        queue.push_back(n);
+                    }
+                    get_next(South)
+                }
+            } {
+                cur = next;
+                dir = next_dir;
+                i = cur.row * grid.width + cur.col;
+                tile = grid.tiles[i];
+                was_energized = energized[i];
+            } else {
+                break;
             }
         }
     }
