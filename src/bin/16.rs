@@ -84,12 +84,10 @@ impl Grid {
         dir: Direction,
         tile: Tile,
     ) -> impl Iterator<Item = (Coordinate, Direction, Tile)> + '_ {
-        std::iter::once(tile.next(dir))
-            .flatten()
-            .filter_map(move |dir| {
-                self.move_in_dir(coord, dir)
-                    .map(|c| (c, dir, self.get_tile(c)))
-            })
+        tile.next(dir).filter_map(move |dir| {
+            self.move_in_dir(coord, dir)
+                .map(|c| (c, dir, self.get_tile(c)))
+        })
     }
 
     pub fn get_tile(&self, coord: Coordinate) -> Tile {
