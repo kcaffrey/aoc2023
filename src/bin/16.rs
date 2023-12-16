@@ -1,5 +1,4 @@
 use std::{
-    collections::VecDeque,
     fmt::{Debug, Display, Write},
     str::FromStr,
 };
@@ -28,65 +27,70 @@ pub fn part_two(input: &str) -> Option<u32> {
 
 fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
     let mut energized = vec![false; grid.height * grid.width];
-    let mut queue = VecDeque::with_capacity(1_000);
-    queue.push_back((start, start_dir));
-    while let Some((mut cur, mut dir)) = queue.pop_front() {
-        use Direction::{East, North, South, West};
-        use Tile::{Empty, HorizontalSplitter, LeftMirror, RightMirror, VerticalSplitter};
+    energize_count_recursive(grid, start, start_dir, &mut energized);
+    energized.into_iter().filter(|&e| e).count() as u32
+}
 
-        let mut i = cur.row * grid.width + cur.col;
-        let mut tile = grid.tiles[i];
-        let mut was_energized = energized[i];
-        while !was_energized || !(tile == HorizontalSplitter || tile == VerticalSplitter) {
-            energized[i] = true;
+fn energize_count_recursive(
+    grid: &Grid,
+    mut cur: Coordinate,
+    mut dir: Direction,
+    energized: &mut [bool],
+) {
+    use Direction::{East, North, South, West};
+    use Tile::{Empty, HorizontalSplitter, LeftMirror, RightMirror, VerticalSplitter};
 
-            let get_next = |next_dir| {
-                Some((
-                    match (cur, next_dir) {
-                        (c, North) if c.row == 0 => return None,
-                        (c, South) if c.row + 1 == grid.height => return None,
-                        (c, West) if c.col == 0 => return None,
-                        (c, East) if c.col + 1 == grid.width => return None,
-                        (_, North) => coord!(cur.row - 1, cur.col),
-                        (_, South) => coord!(cur.row + 1, cur.col),
-                        (_, East) => coord!(cur.row, cur.col + 1),
-                        (_, West) => coord!(cur.row, cur.col - 1),
-                    },
-                    next_dir,
-                ))
-            };
-            if let Some((next, next_dir)) = match (tile, dir) {
-                (Empty, _) => get_next(dir),
-                (HorizontalSplitter, East) | (HorizontalSplitter, West) => get_next(dir),
-                (VerticalSplitter, North) | (VerticalSplitter, South) => get_next(dir),
-                (LeftMirror, East) | (RightMirror, West) => get_next(South),
-                (LeftMirror, West) | (RightMirror, East) => get_next(North),
-                (LeftMirror, North) | (RightMirror, South) => get_next(West),
-                (LeftMirror, South) | (RightMirror, North) => get_next(East),
-                (HorizontalSplitter, _) => {
-                    if let Some(n) = get_next(West) {
-                        queue.push_back(n);
-                    }
-                    get_next(East)
+    let mut i = cur.row * grid.width + cur.col;
+    let mut tile = grid.tiles[i];
+    let mut was_energized = energized[i];
+    while !was_energized || !(tile == HorizontalSplitter || tile == VerticalSplitter) {
+        energized[i] = true;
+
+        let get_next = |next_dir| {
+            Some((
+                match (cur, next_dir) {
+                    (c, North) if c.row == 0 => return None,
+                    (c, South) if c.row + 1 == grid.height => return None,
+                    (c, West) if c.col == 0 => return None,
+                    (c, East) if c.col + 1 == grid.width => return None,
+                    (_, North) => coord!(cur.row - 1, cur.col),
+                    (_, South) => coord!(cur.row + 1, cur.col),
+                    (_, East) => coord!(cur.row, cur.col + 1),
+                    (_, West) => coord!(cur.row, cur.col - 1),
+                },
+                next_dir,
+            ))
+        };
+        if let Some((next, next_dir)) = match (tile, dir) {
+            (Empty, _) => get_next(dir),
+            (HorizontalSplitter, East) | (HorizontalSplitter, West) => get_next(dir),
+            (VerticalSplitter, North) | (VerticalSplitter, South) => get_next(dir),
+            (LeftMirror, East) | (RightMirror, West) => get_next(South),
+            (LeftMirror, West) | (RightMirror, East) => get_next(North),
+            (LeftMirror, North) | (RightMirror, South) => get_next(West),
+            (LeftMirror, South) | (RightMirror, North) => get_next(East),
+            (HorizontalSplitter, _) => {
+                if let Some((next, next_dir)) = get_next(West) {
+                    energize_count_recursive(grid, next, next_dir, energized)
                 }
-                (VerticalSplitter, _) => {
-                    if let Some(n) = get_next(North) {
-                        queue.push_back(n);
-                    }
-                    get_next(South)
-                }
-            } {
-                cur = next;
-                dir = next_dir;
-                i = cur.row * grid.width + cur.col;
-                tile = grid.tiles[i];
-                was_energized = energized[i];
-            } else {
-                break;
+                get_next(East)
             }
+            (VerticalSplitter, _) => {
+                if let Some((next, next_dir)) = get_next(North) {
+                    energize_count_recursive(grid, next, next_dir, energized)
+                }
+                get_next(South)
+            }
+        } {
+            cur = next;
+            dir = next_dir;
+            i = cur.row * grid.width + cur.col;
+            tile = grid.tiles[i];
+            was_energized = energized[i];
+        } else {
+            return;
         }
     }
-    energized.into_iter().filter(|&e| e).count() as u32
 }
 
 struct Grid {
