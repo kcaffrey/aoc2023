@@ -28,28 +28,33 @@ pub fn part_two(input: &str) -> Option<u32> {
 
 fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
     let mut energized = vec![false; grid.height * grid.width];
-    let mut queue = VecDeque::new();
-    energized[start.row * grid.width + start.col] = true;
-    queue.push_back((start, start_dir, grid.get_tile(start)));
-    while let Some((cur, dir, tile)) = queue.pop_front() {
-        let mut do_next = |next_dir| {
-            let Some(next) = grid.move_in_dir(cur, next_dir) else {
-                return;
-            };
-            let tile = grid.get_tile(next);
-            let i = next.row * grid.width + next.col;
-            let was_energized = energized[i];
-            energized[i] = true;
-            match (tile, was_energized) {
-                // If we hit a splitter that was already energized, we know we are entering a loop so we can stop
-                (Tile::HorizontalSplitter, true) | (Tile::VerticalSplitter, true) => {}
-
-                // Otherwise keep going
-                _ => queue.push_back((next, next_dir, tile)),
-            }
-        };
+    let mut queue = VecDeque::with_capacity(1_000);
+    queue.push_back((start, start_dir));
+    while let Some((cur, dir)) = queue.pop_front() {
         use Direction::{East, North, South, West};
         use Tile::{Empty, HorizontalSplitter, LeftMirror, RightMirror, VerticalSplitter};
+
+        let i = cur.row * grid.width + cur.col;
+        let tile = grid.tiles[i];
+        let was_energized = energized[i];
+        if was_energized && (tile == HorizontalSplitter || tile == VerticalSplitter) {
+            continue;
+        }
+        energized[i] = true;
+
+        let mut do_next = |next_dir| {
+            let next = match (cur, next_dir) {
+                (c, North) if c.row == 0 => return,
+                (c, South) if c.row + 1 == grid.height => return,
+                (c, West) if c.col == 0 => return,
+                (c, East) if c.col + 1 == grid.width => return,
+                (_, North) => coord!(cur.row - 1, cur.col),
+                (_, South) => coord!(cur.row + 1, cur.col),
+                (_, East) => coord!(cur.row, cur.col + 1),
+                (_, West) => coord!(cur.row, cur.col - 1),
+            };
+            queue.push_back((next, next_dir));
+        };
         match (tile, dir) {
             (Empty, _) => do_next(dir),
             (HorizontalSplitter, East) | (HorizontalSplitter, West) => do_next(dir),
@@ -104,36 +109,11 @@ impl Grid {
     pub fn get_tile(&self, coord: Coordinate) -> Tile {
         self.tiles[coord.row * self.width + coord.col]
     }
-
-    fn move_in_dir(&self, coord: Coordinate, dir: Direction) -> Option<Coordinate> {
-        coord
-            .move_in_dir(dir)
-            .filter(|&c| c.row < self.height && c.col < self.width)
-    }
 }
 
 impl Coordinate {
     const fn new(row: usize, col: usize) -> Self {
         Self { row, col }
-    }
-
-    const fn move_in_dir(self, dir: Direction) -> Option<Self> {
-        Some(match dir {
-            Direction::North => {
-                if self.row == 0 {
-                    return None;
-                }
-                Self::new(self.row - 1, self.col)
-            }
-            Direction::South => Self::new(self.row + 1, self.col),
-            Direction::East => Self::new(self.row, self.col + 1),
-            Direction::West => {
-                if self.col == 0 {
-                    return None;
-                }
-                Self::new(self.row, self.col - 1)
-            }
-        })
     }
 }
 
