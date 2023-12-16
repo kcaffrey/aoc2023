@@ -32,7 +32,11 @@ fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
     energized[start.row * grid.width + start.col] = true;
     queue.push_back((start, start_dir, grid.get_tile(start)));
     while let Some((cur, dir, tile)) = queue.pop_front() {
-        for (next, next_dir, tile) in grid.neighbors(cur, dir, tile) {
+        for (next, next_dir) in tile
+            .next(dir)
+            .filter_map(|dir| grid.move_in_dir(cur, dir).map(|c| (c, dir)))
+        {
+            let tile = grid.get_tile(next);
             let i = next.row * grid.width + next.col;
             let was_energized = energized[i];
             energized[i] = true;
@@ -78,18 +82,6 @@ enum Direction {
 }
 
 impl Grid {
-    pub fn neighbors(
-        &self,
-        coord: Coordinate,
-        dir: Direction,
-        tile: Tile,
-    ) -> impl Iterator<Item = (Coordinate, Direction, Tile)> + '_ {
-        tile.next(dir).filter_map(move |dir| {
-            self.move_in_dir(coord, dir)
-                .map(|c| (c, dir, self.get_tile(c)))
-        })
-    }
-
     pub fn get_tile(&self, coord: Coordinate) -> Tile {
         self.tiles[coord.row * self.width + coord.col]
     }
