@@ -32,10 +32,10 @@ fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
     energized[start.row * grid.width + start.col] = true;
     queue.push_back((start, start_dir, grid.get_tile(start)));
     while let Some((cur, dir, tile)) = queue.pop_front() {
-        for (next, next_dir) in tile
-            .next(dir)
-            .filter_map(|dir| grid.move_in_dir(cur, dir).map(|c| (c, dir)))
-        {
+        let mut do_next = |next_dir| {
+            let Some(next) = grid.move_in_dir(cur, next_dir) else {
+                return;
+            };
             let tile = grid.get_tile(next);
             let i = next.row * grid.width + next.col;
             let was_energized = energized[i];
@@ -46,6 +46,25 @@ fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
 
                 // Otherwise keep going
                 _ => queue.push_back((next, next_dir, tile)),
+            }
+        };
+        use Direction::{East, North, South, West};
+        use Tile::{Empty, HorizontalSplitter, LeftMirror, RightMirror, VerticalSplitter};
+        match (tile, dir) {
+            (Empty, _) => do_next(dir),
+            (HorizontalSplitter, East) | (HorizontalSplitter, West) => do_next(dir),
+            (VerticalSplitter, North) | (VerticalSplitter, South) => do_next(dir),
+            (LeftMirror, East) | (RightMirror, West) => do_next(South),
+            (LeftMirror, West) | (RightMirror, East) => do_next(North),
+            (LeftMirror, North) | (RightMirror, South) => do_next(West),
+            (LeftMirror, South) | (RightMirror, North) => do_next(East),
+            (HorizontalSplitter, _) => {
+                do_next(West);
+                do_next(East);
+            }
+            (VerticalSplitter, _) => {
+                do_next(North);
+                do_next(South);
             }
         }
     }
@@ -93,61 +112,6 @@ impl Grid {
     }
 }
 
-impl Tile {
-    pub fn next(self, dir: Direction) -> impl Iterator<Item = Direction> {
-        let mut next = [None, None, None];
-        if self.can_go_straight(dir) {
-            next[0] = Some(dir);
-        }
-        if self.can_turn_left(dir) {
-            next[1] = Some(dir.rotate_left());
-        }
-        if self.can_turn_right(dir) {
-            next[2] = Some(dir.rotate_right());
-        }
-        next.into_iter().flatten()
-    }
-
-    const fn can_go_straight(self, dir: Direction) -> bool {
-        matches!(
-            (self, dir),
-            (Self::Empty, _)
-                | (Self::VerticalSplitter, Direction::South)
-                | (Self::VerticalSplitter, Direction::North)
-                | (Self::HorizontalSplitter, Direction::East)
-                | (Self::HorizontalSplitter, Direction::West)
-        )
-    }
-
-    const fn can_turn_left(self, dir: Direction) -> bool {
-        matches!(
-            (self, dir),
-            (Self::VerticalSplitter, Direction::East)
-                | (Self::VerticalSplitter, Direction::West)
-                | (Self::HorizontalSplitter, Direction::North)
-                | (Self::HorizontalSplitter, Direction::South)
-                | (Self::LeftMirror, Direction::North)
-                | (Self::LeftMirror, Direction::South)
-                | (Self::RightMirror, Direction::East)
-                | (Self::RightMirror, Direction::West)
-        )
-    }
-
-    const fn can_turn_right(self, dir: Direction) -> bool {
-        matches!(
-            (self, dir),
-            (Self::VerticalSplitter, Direction::East)
-                | (Self::VerticalSplitter, Direction::West)
-                | (Self::HorizontalSplitter, Direction::North)
-                | (Self::HorizontalSplitter, Direction::South)
-                | (Self::LeftMirror, Direction::East)
-                | (Self::LeftMirror, Direction::West)
-                | (Self::RightMirror, Direction::North)
-                | (Self::RightMirror, Direction::South)
-        )
-    }
-}
-
 impl Coordinate {
     const fn new(row: usize, col: usize) -> Self {
         Self { row, col }
@@ -170,26 +134,6 @@ impl Coordinate {
                 Self::new(self.row, self.col - 1)
             }
         })
-    }
-}
-
-impl Direction {
-    const fn rotate_left(self) -> Self {
-        match self {
-            Direction::North => Direction::West,
-            Direction::South => Direction::East,
-            Direction::East => Direction::North,
-            Direction::West => Direction::South,
-        }
-    }
-
-    const fn rotate_right(self) -> Self {
-        match self {
-            Direction::North => Direction::East,
-            Direction::South => Direction::West,
-            Direction::East => Direction::South,
-            Direction::West => Direction::North,
-        }
     }
 }
 
