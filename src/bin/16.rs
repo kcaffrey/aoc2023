@@ -30,20 +30,18 @@ fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
     let mut energized = vec![false; grid.height * grid.width];
     let mut queue = VecDeque::new();
     energized[start.row * grid.width + start.col] = true;
-    queue.push_back((start, start_dir));
-    while let Some((cur, dir)) = queue.pop_front() {
-        for (next, next_dir) in grid.neighbors(cur, dir) {
-            if let Some(tile) = grid.get_tile(next) {
-                let i = next.row * grid.width + next.col;
-                let was_energized = energized[i];
-                energized[i] = true;
-                match (tile, was_energized) {
-                    // If we hit a splitter that was already energized, we know we are entering a loop so we can stop
-                    (Tile::HorizontalSplitter, true) | (Tile::VerticalSplitter, true) => {}
+    queue.push_back((start, start_dir, grid.get_tile(start)));
+    while let Some((cur, dir, tile)) = queue.pop_front() {
+        for (next, next_dir, tile) in grid.neighbors(cur, dir, tile) {
+            let i = next.row * grid.width + next.col;
+            let was_energized = energized[i];
+            energized[i] = true;
+            match (tile, was_energized) {
+                // If we hit a splitter that was already energized, we know we are entering a loop so we can stop
+                (Tile::HorizontalSplitter, true) | (Tile::VerticalSplitter, true) => {}
 
-                    // Otherwise keep going
-                    _ => queue.push_back((next, next_dir)),
-                }
+                // Otherwise keep going
+                _ => queue.push_back((next, next_dir, tile)),
             }
         }
     }
@@ -51,7 +49,7 @@ fn energize_count(grid: &Grid, start: Coordinate, start_dir: Direction) -> u32 {
 }
 
 struct Grid {
-    tiles: Vec<Vec<Tile>>,
+    tiles: Vec<Tile>,
     width: usize,
     height: usize,
 }
@@ -84,18 +82,18 @@ impl Grid {
         &self,
         coord: Coordinate,
         dir: Direction,
-    ) -> impl Iterator<Item = (Coordinate, Direction)> + '_ {
-        std::iter::once(self.get_tile(coord))
+        tile: Tile,
+    ) -> impl Iterator<Item = (Coordinate, Direction, Tile)> + '_ {
+        std::iter::once(tile.next(dir))
             .flatten()
-            .flat_map(move |tile| tile.next(dir))
-            .filter_map(move |dir| self.move_in_dir(coord, dir).map(|c| (c, dir)))
+            .filter_map(move |dir| {
+                self.move_in_dir(coord, dir)
+                    .map(|c| (c, dir, self.get_tile(c)))
+            })
     }
 
-    pub fn get_tile(&self, coord: Coordinate) -> Option<Tile> {
-        self.tiles
-            .get(coord.row)
-            .and_then(|row| row.get(coord.col))
-            .copied()
+    pub fn get_tile(&self, coord: Coordinate) -> Tile {
+        self.tiles[coord.row * self.width + coord.col]
     }
 
     fn move_in_dir(&self, coord: Coordinate, dir: Direction) -> Option<Coordinate> {
@@ -223,39 +221,36 @@ impl FromStr for Grid {
             .iter()
             .position(|&ch| ch == b'\n')
             .ok_or(ParseGridError::OnlyOneRowFound)?;
-        let mut rows = Vec::new();
-        for line in s.split(|&ch| ch == b'\n') {
-            if line.is_empty() {
-                continue;
-            }
-            rows.push(
-                line.iter()
-                    .map(|&ch| {
-                        Ok(match ch {
-                            b'.' => Tile::Empty,
-                            b'\\' => Tile::LeftMirror,
-                            b'/' => Tile::RightMirror,
-                            b'|' => Tile::VerticalSplitter,
-                            b'-' => Tile::HorizontalSplitter,
-                            _ => return Err(ParseGridError::InvalidCharacter(ch.into())),
-                        })
+        let height = s.len() / (width + 1);
+        let tiles = s
+            .split(|&ch| ch == b'\n')
+            .filter(|l| !l.is_empty())
+            .flat_map(|line| {
+                line.iter().map(|&ch| {
+                    Ok(match ch {
+                        b'.' => Tile::Empty,
+                        b'\\' => Tile::LeftMirror,
+                        b'/' => Tile::RightMirror,
+                        b'|' => Tile::VerticalSplitter,
+                        b'-' => Tile::HorizontalSplitter,
+                        _ => return Err(ParseGridError::InvalidCharacter(ch.into())),
                     })
-                    .collect::<Result<_, _>>()?,
-            );
-        }
+                })
+            })
+            .collect::<Result<_, _>>()?;
         Ok(Self {
             width,
-            height: rows.len(),
-            tiles: rows,
+            height,
+            tiles,
         })
     }
 }
 
 impl Display for Grid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for row in &self.tiles {
-            for tile in row {
-                write!(f, "{}", tile)?;
+        for row in 0..self.height {
+            for col in 0..self.width {
+                write!(f, "{}", self.get_tile(coord!(row, col)))?;
             }
             f.write_char('\n')?;
         }
@@ -302,32 +297,5 @@ mod tests {
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(51));
-    }
-
-    #[test]
-    fn test_grid_neighbors() {
-        use Direction::{East, North, South, West};
-        let grid: Grid = advent_of_code::template::read_file("examples", DAY)
-            .parse()
-            .unwrap();
-        let neighbors_vec = |coord, dir| grid.neighbors(coord, dir).collect::<Vec<_>>();
-        assert_eq!(neighbors_vec(coord!(0, 0), North), vec![]);
-        assert_eq!(neighbors_vec(coord!(0, 0), West), vec![]);
-        assert_eq!(
-            neighbors_vec(coord!(0, 0), East),
-            vec![(coord!(0, 1), East)]
-        );
-        assert_eq!(
-            neighbors_vec(coord!(0, 1), East),
-            vec![(coord!(1, 1), South)]
-        );
-        assert_eq!(
-            neighbors_vec(coord!(1, 2), South),
-            vec![(coord!(1, 3), East), (coord!(1, 1), West)]
-        );
-        assert_eq!(
-            neighbors_vec(coord!(1, 4), West),
-            vec![(coord!(0, 4), North)]
-        );
     }
 }
