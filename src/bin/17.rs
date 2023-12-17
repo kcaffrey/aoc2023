@@ -8,11 +8,11 @@ use enum_ordinalize::Ordinalize;
 
 advent_of_code::solution!(17);
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> Option<u16> {
     solve_a_star(input, 1, 3)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<u16> {
     solve_a_star(input, 4, 10)
 }
 
@@ -20,16 +20,17 @@ fn solve_a_star(
     input: &str,
     min_straight_distance: usize,
     max_straight_distance: usize,
-) -> Option<u32> {
+) -> Option<u16> {
     use Alignment::{Horizontal, Vertical};
     let map = Map::parse(input);
     let start = Coordinate::new(0, 0);
     let goal = Coordinate::new(map.height - 1, map.width - 1);
     let mut queue = BinaryHeap::new();
-    let mut best_so_far = vec![[u32::MAX; 2]; map.width * map.height];
+    let mut best_so_far = vec![[u16::MAX; 2]; map.width * map.height];
     best_so_far[start.row * map.width + start.col][0] = 0;
     best_so_far[start.row * map.width + start.col][1] = 0;
-    let estimate_to_goal = start.manhattan_distance(goal);
+    let estimates = map.precalculate_heuristic(goal, min_straight_distance, max_straight_distance);
+    let estimate_to_goal = estimates[0];
     queue.push(Reverse((estimate_to_goal, 0, start, Alignment::Vertical)));
     queue.push(Reverse((estimate_to_goal, 0, start, Alignment::Horizontal)));
     while let Some(Reverse((_, so_far, cur, alignment))) = queue.pop() {
@@ -62,7 +63,7 @@ fn solve_a_star(
                     if distance < min_straight_distance {
                         continue;
                     }
-                    let estimate_to_goal = next.manhattan_distance(goal);
+                    let estimate_to_goal = estimates[index];
                     let cost_so_far = so_far + cumulative_cost;
                     if cost_so_far < best_so_far[index][next_alignment.ordinal() as usize] {
                         best_so_far[index][next_alignment.ordinal() as usize] = cost_so_far;
@@ -84,7 +85,7 @@ fn solve_a_star(
 
 #[derive(Debug, Clone)]
 struct Map {
-    costs: Vec<u32>,
+    costs: Vec<u16>,
     width: usize,
     height: usize,
 }
@@ -107,10 +108,6 @@ impl Coordinate {
     pub const fn new(row: usize, col: usize) -> Self {
         Self { row, col }
     }
-
-    pub const fn manhattan_distance(&self, other: Self) -> u32 {
-        (self.row.abs_diff(other.row) + self.col.abs_diff(other.col)) as u32
-    }
 }
 
 impl Map {
@@ -120,13 +117,49 @@ impl Map {
         let height = (input.len() + 1) / (width + 1);
         let costs = input
             .split(|&ch| ch == b'\n')
-            .flat_map(|line| line.iter().map(|&ch| (ch - b'0') as u32))
+            .flat_map(|line| line.iter().map(|&ch| (ch - b'0') as u16))
             .collect();
         Self {
             costs,
             width,
             height,
         }
+    }
+
+    pub fn precalculate_heuristic(
+        &self,
+        goal: Coordinate,
+        min_straight_distance: usize,
+        max_straight_distance: usize,
+    ) -> Vec<u16> {
+        // The idea here is that the basic heuristic is manhattan distance to goal.
+        // However, because we have a limit on how far we can go in a straight line,
+        // long straight line paths are no good because you have to make a lot of turns
+        // to keep going straight.
+        // If we are diagonal from the goal, we can zig zag our way down, but if
+        // we are close to an edge we'll have to slither back and forth to keep going
+        // straight.
+        // Thus, figure out which edge we are closer to, and then add a penalty for how
+        // many times we'll have to turn to the heuristic.
+        let mut ret = vec![0; self.width * self.height];
+        for row in 0..self.height {
+            for col in 0..self.width {
+                let row_diff = row.abs_diff(goal.row);
+                let col_diff = col.abs_diff(goal.col);
+                let penalty = if row_diff < col_diff {
+                    let max_zags = row_diff / max_straight_distance;
+                    let remainder = col_diff - max_zags * max_straight_distance;
+                    (remainder / max_straight_distance) * min_straight_distance * 2
+                } else {
+                    let max_zigs = col_diff / max_straight_distance;
+                    let remainder = row_diff - max_zigs * max_straight_distance;
+                    (remainder / max_straight_distance) * min_straight_distance * 2
+                };
+                let estimate_to_goal = (row_diff + col_diff + penalty) as u16;
+                ret[row * self.width + col] = estimate_to_goal;
+            }
+        }
+        ret
     }
 }
 
