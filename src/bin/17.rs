@@ -146,8 +146,9 @@ impl Map {
             for col in 0..self.width {
                 let row_diff = row.abs_diff(goal.row);
                 let col_diff = col.abs_diff(goal.col);
-                let penalty =
-                    ((col_diff.abs_diff(row_diff)) / max_straight_distance) * min_straight_distance;
+                let penalty = ((col_diff.abs_diff(row_diff) + (2 * max_straight_distance - 1))
+                    / (2 * max_straight_distance))
+                    * (2 * min_straight_distance);
                 let estimate_to_goal = (row_diff + col_diff + penalty) as u16;
                 ret[row * self.width + col] = estimate_to_goal;
             }
