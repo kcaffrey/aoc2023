@@ -26,9 +26,9 @@ fn solve_a_star(
     let start = Coordinate::new(0, 0);
     let goal = Coordinate::new(map.height - 1, map.width - 1);
     let mut queue = BinaryHeap::new();
-    let mut best_so_far = vec![vec![[u32::MAX; 2]; map.width]; map.height];
-    best_so_far[start.row][start.col][0] = 0;
-    best_so_far[start.row][start.col][1] = 0;
+    let mut best_so_far = vec![[u32::MAX; 2]; map.width * map.height];
+    best_so_far[start.row * map.width + start.col][0] = 0;
+    best_so_far[start.row * map.width + start.col][1] = 0;
     let estimate_to_goal = start.manhattan_distance(goal);
     queue.push(Reverse((estimate_to_goal, 0, start, Alignment::Vertical)));
     queue.push(Reverse((estimate_to_goal, 0, start, Alignment::Horizontal)));
@@ -56,18 +56,16 @@ fn solve_a_star(
                         .map(|c| (coord!(cur.row, c), Vertical)),
                     _ => None,
                 } {
-                    let cost = map.costs[next.row][next.col];
+                    let index = next.row * map.width + next.col;
+                    let cost = map.costs[index];
                     cumulative_cost += cost;
                     if distance < min_straight_distance {
                         continue;
                     }
                     let estimate_to_goal = next.manhattan_distance(goal);
                     let cost_so_far = so_far + cumulative_cost;
-                    if cost_so_far
-                        < best_so_far[next.row][next.col][next_alignment.ordinal() as usize]
-                    {
-                        best_so_far[next.row][next.col][next_alignment.ordinal() as usize] =
-                            cost_so_far;
+                    if cost_so_far < best_so_far[index][next_alignment.ordinal() as usize] {
+                        best_so_far[index][next_alignment.ordinal() as usize] = cost_so_far;
                         queue.push(Reverse((
                             cost_so_far + estimate_to_goal,
                             cost_so_far,
@@ -86,7 +84,7 @@ fn solve_a_star(
 
 #[derive(Debug, Clone)]
 struct Map {
-    costs: Vec<Vec<u32>>,
+    costs: Vec<u32>,
     width: usize,
     height: usize,
 }
@@ -122,7 +120,7 @@ impl Map {
         let height = (input.len() + 1) / (width + 1);
         let costs = input
             .split(|&ch| ch == b'\n')
-            .map(|line| line.iter().map(|&ch| (ch - b'0') as u32).collect())
+            .flat_map(|line| line.iter().map(|&ch| (ch - b'0') as u32))
             .collect();
         Self {
             costs,
@@ -136,7 +134,7 @@ impl Display for Map {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for row in 0..self.height {
             for col in 0..self.width {
-                f.write_char((self.costs[row][col] as u8 + b'0') as char)?;
+                f.write_char((self.costs[row * self.width + col] as u8 + b'0') as char)?;
             }
             f.write_char('\n')?;
         }
