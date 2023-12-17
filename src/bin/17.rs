@@ -147,13 +147,9 @@ impl Map {
                 let row_diff = row.abs_diff(goal.row);
                 let col_diff = col.abs_diff(goal.col);
                 let penalty = if row_diff < col_diff {
-                    let max_zags = row_diff / max_straight_distance;
-                    let remainder = col_diff - max_zags * max_straight_distance;
-                    (remainder / max_straight_distance) * min_straight_distance * 2
+                    ((col_diff - row_diff) / max_straight_distance) * min_straight_distance * 2
                 } else {
-                    let max_zigs = col_diff / max_straight_distance;
-                    let remainder = row_diff - max_zigs * max_straight_distance;
-                    (remainder / max_straight_distance) * min_straight_distance * 2
+                    ((row_diff - col_diff) / max_straight_distance) * min_straight_distance * 2
                 };
                 let estimate_to_goal = (row_diff + col_diff + penalty) as u16;
                 ret[row * self.width + col] = estimate_to_goal;
