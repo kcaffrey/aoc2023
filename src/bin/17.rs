@@ -180,9 +180,7 @@ impl<T: Copy> BucketQueue<T> {
     pub fn push(&mut self, cost: usize, value: T) {
         if cost >= self.buckets.len() {
             self.buckets
-                .resize_with((cost + 1).max(self.buckets.len() * 2), || {
-                    Vec::with_capacity(128)
-                });
+                .resize_with(cost + 1, || Vec::with_capacity(128));
         }
         self.buckets[cost].push(value);
         if self.first_non_empty.filter(|&f| f <= cost).is_none() {
