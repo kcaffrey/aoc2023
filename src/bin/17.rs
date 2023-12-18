@@ -1,8 +1,4 @@
-use std::{
-    cmp::Reverse,
-    collections::BinaryHeap,
-    fmt::{Display, Write},
-};
+use std::fmt::{Display, Write};
 
 use enum_ordinalize::Ordinalize;
 
@@ -25,15 +21,15 @@ fn solve_a_star(
     let map = Map::parse(input);
     let start = Coordinate::new(0, 0);
     let goal = Coordinate::new(map.height - 1, map.width - 1);
-    let mut queue = BinaryHeap::new();
+    let mut queue = BucketQueue::new();
     let mut best_so_far = vec![[u16::MAX; 2]; map.width * map.height];
     best_so_far[start.row * map.width + start.col][0] = 0;
     best_so_far[start.row * map.width + start.col][1] = 0;
     let estimates = map.precalculate_heuristic(goal, min_straight_distance, max_straight_distance);
     let estimate_to_goal = estimates[0];
-    queue.push(Reverse((estimate_to_goal, 0, start, Alignment::Vertical)));
-    queue.push(Reverse((estimate_to_goal, 0, start, Alignment::Horizontal)));
-    while let Some(Reverse((_, so_far, cur, alignment))) = queue.pop() {
+    queue.push(estimate_to_goal as usize, (0, start, Alignment::Vertical));
+    queue.push(estimate_to_goal as usize, (0, start, Alignment::Horizontal));
+    while let Some((_, (so_far, cur, alignment))) = queue.pop() {
         if cur == goal {
             return Some(so_far);
         }
@@ -67,12 +63,10 @@ fn solve_a_star(
                     let cost_so_far = so_far + cumulative_cost;
                     if cost_so_far < best_so_far[index][next_alignment.ordinal() as usize] {
                         best_so_far[index][next_alignment.ordinal() as usize] = cost_so_far;
-                        queue.push(Reverse((
-                            cost_so_far + estimate_to_goal,
-                            cost_so_far,
-                            next,
-                            next_alignment,
-                        )));
+                        queue.push(
+                            (cost_so_far + estimate_to_goal) as usize,
+                            (cost_so_far, next, next_alignment),
+                        );
                     }
                 } else {
                     break;
@@ -166,6 +160,46 @@ impl Display for Map {
             f.write_char('\n')?;
         }
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct BucketQueue<T> {
+    buckets: Vec<Vec<T>>,
+    first_non_empty: Option<usize>,
+}
+
+impl<T: Copy> BucketQueue<T> {
+    pub const fn new() -> Self {
+        Self {
+            buckets: Vec::new(),
+            first_non_empty: None,
+        }
+    }
+
+    pub fn push(&mut self, cost: usize, value: T) {
+        if cost >= self.buckets.len() {
+            self.buckets
+                .resize_with((cost + 1).max(self.buckets.len() * 2), || {
+                    Vec::with_capacity(128)
+                });
+        }
+        self.buckets[cost].push(value);
+        if self.first_non_empty.filter(|&f| f <= cost).is_none() {
+            self.first_non_empty = Some(cost);
+        }
+    }
+
+    pub fn pop(&mut self) -> Option<(usize, T)> {
+        let Some(min_cost) = self.first_non_empty else {
+            return None;
+        };
+        let value = self.buckets[min_cost].pop().unwrap();
+        if self.buckets[min_cost].is_empty() {
+            self.first_non_empty =
+                (min_cost + 1..self.buckets.len()).find(|&c| !self.buckets[c].is_empty());
+        }
+        Some((min_cost, value))
     }
 }
 
