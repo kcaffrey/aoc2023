@@ -35,13 +35,9 @@ pub fn part_two(input: &str) -> Option<i64> {
     {
         let hex = &line[line.len() - 7..line.len() - 1];
         let dir: Direction = hex[5].try_into().expect("valid direction");
-        let distance = hex[..5]
-            .iter()
-            .copied()
-            .take_while(|&ch| ch != b' ')
-            .fold(0, |acc, ch| {
-                acc * 16 + char::from(ch).to_digit(16).unwrap() as i64
-            });
+        let distance = hex[..5].iter().copied().fold(0, |acc, ch| {
+            acc * 16 + char::from(ch).to_digit(16).unwrap() as i64
+        });
         let next = prev.move_in_dir(dir, distance);
         area += prev.x * next.y - prev.y * next.x;
         border_points += distance;
