@@ -5,7 +5,7 @@ pub fn part_one(input: &str) -> Option<i64> {
 }
 
 pub fn part_two(input: &str) -> Option<i64> {
-    Some(solve(input, parse_part2))
+    Some(solve_part2(input))
 }
 
 fn solve<F: Fn(&[u8]) -> (Direction, i64)>(input: &str, parser: F) -> i64 {
@@ -19,6 +19,36 @@ fn solve<F: Fn(&[u8]) -> (Direction, i64)>(input: &str, parser: F) -> i64 {
         .map(parser)
     {
         let next = prev.move_in_dir(dir, distance);
+        area += prev.x * next.y - prev.y * next.x;
+        border_points += distance;
+        prev = next;
+    }
+    area = area.abs() / 2;
+    area + border_points / 2 + 1
+}
+
+fn solve_part2(input: &str) -> i64 {
+    let input = input.as_bytes();
+    let mut border_points = 0;
+    let mut area = 0;
+    let mut prev = Point::new(0, 0);
+    let mut index = 6;
+    while index < input.len() - 1 {
+        if input[index] == b'#' {
+            index += 1;
+        }
+        let distance: i64 = input[index..index + 5].iter().fold(0, |acc, &ch| {
+            let d = if ch < b'a' { ch - b'0' } else { ch - b'a' + 10 };
+            (acc << 4) + (d as i64)
+        });
+        let next = match input[index + 5] {
+            b'0' => Point::new(prev.x + distance, prev.y),
+            b'1' => Point::new(prev.x, prev.y + distance),
+            b'2' => Point::new(prev.x - distance, prev.y),
+            b'3' => Point::new(prev.x, prev.y - distance),
+            _ => unreachable!(),
+        };
+        index += 14;
         area += prev.x * next.y - prev.y * next.x;
         border_points += distance;
         prev = next;
