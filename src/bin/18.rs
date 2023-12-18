@@ -1,50 +1,49 @@
 advent_of_code::solution!(18);
 
 pub fn part_one(input: &str) -> Option<i64> {
-    let mut border_points = 0;
-    let mut area = 0;
-    let mut prev = Point::origin();
-    for line in input
-        .as_bytes()
-        .split(|&ch| ch == b'\n')
-        .filter(|line| !line.is_empty())
-    {
-        let dir: Direction = line[0].try_into().expect("valid direction");
-        let distance = line[2..]
-            .iter()
-            .copied()
-            .take_while(|&ch| ch != b' ')
-            .fold(0, |acc, ch| acc * 10 + i64::from(ch - b'0'));
-        let next = prev.move_in_dir(dir, distance);
-        area += prev.x * next.y - prev.y * next.x;
-        border_points += distance;
-        prev = next;
-    }
-    area = area.abs() / 2;
-    Some(area + border_points / 2 + 1)
+    Some(solve(input, parse_part1))
 }
 
 pub fn part_two(input: &str) -> Option<i64> {
+    Some(solve(input, parse_part2))
+}
+
+fn solve<F: Fn(&[u8]) -> (Direction, i64)>(input: &str, parser: F) -> i64 {
     let mut border_points = 0;
     let mut area = 0;
     let mut prev = Point::origin();
-    for line in input
+    for (dir, distance) in input
         .as_bytes()
         .split(|&ch| ch == b'\n')
         .filter(|line| !line.is_empty())
+        .map(parser)
     {
-        let hex = &line[line.len() - 7..line.len() - 1];
-        let dir: Direction = hex[5].try_into().expect("valid direction");
-        let distance = hex[..5].iter().copied().fold(0, |acc, ch| {
-            acc * 16 + char::from(ch).to_digit(16).unwrap() as i64
-        });
         let next = prev.move_in_dir(dir, distance);
         area += prev.x * next.y - prev.y * next.x;
         border_points += distance;
         prev = next;
     }
     area = area.abs() / 2;
-    Some(area + border_points / 2 + 1)
+    area + border_points / 2 + 1
+}
+
+fn parse_part1(line: &[u8]) -> (Direction, i64) {
+    let dir: Direction = line[0].try_into().expect("valid direction");
+    let distance = line[2..]
+        .iter()
+        .copied()
+        .take_while(|&ch| ch != b' ')
+        .fold(0, |acc, ch| acc * 10 + i64::from(ch - b'0'));
+    (dir, distance)
+}
+
+fn parse_part2(line: &[u8]) -> (Direction, i64) {
+    let hex = &line[line.len() - 7..line.len() - 1];
+    let dir: Direction = hex[5].try_into().expect("valid direction");
+    let distance = hex[..5].iter().copied().fold(0, |acc, ch| {
+        acc * 16 + char::from(ch).to_digit(16).unwrap() as i64
+    });
+    (dir, distance)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
