@@ -1,24 +1,36 @@
 advent_of_code::solution!(18);
 
 pub fn part_one(input: &str) -> Option<i64> {
-    Some(solve(input, parse_part1))
+    Some(solve_part1_fast(input))
 }
 
 pub fn part_two(input: &str) -> Option<i64> {
-    Some(solve_part2(input))
+    Some(solve_part2_fast(input))
 }
 
-fn solve<F: Fn(&[u8]) -> (Direction, i64)>(input: &str, parser: F) -> i64 {
+fn solve_part1_fast(input: &str) -> i64 {
+    let input = input.as_bytes();
     let mut border_points = 0;
     let mut area = 0;
-    let mut prev = Point::origin();
-    for (dir, distance) in input
-        .as_bytes()
-        .split(|&ch| ch == b'\n')
-        .filter(|line| !line.is_empty())
-        .map(parser)
-    {
-        let next = prev.move_in_dir(dir, distance);
+    let mut prev = Point::new(0, 0);
+    let mut index = 0;
+    while index < input.len() - 1 {
+        let end_of_distance = if input[index + 3] == b' ' {
+            index + 2
+        } else {
+            index + 3
+        };
+        let distance: i64 = input[index + 2..=end_of_distance]
+            .iter()
+            .fold(0, |acc, &ch| (acc << 4) + ((ch - b'0') as i64));
+        let next = match input[index] {
+            b'R' => Point::new(prev.x + distance, prev.y),
+            b'D' => Point::new(prev.x, prev.y + distance),
+            b'L' => Point::new(prev.x - distance, prev.y),
+            b'U' => Point::new(prev.x, prev.y - distance),
+            _ => unreachable!(),
+        };
+        index = end_of_distance + 12;
         area += prev.x * next.y - prev.y * next.x;
         border_points += distance;
         prev = next;
@@ -27,7 +39,7 @@ fn solve<F: Fn(&[u8]) -> (Direction, i64)>(input: &str, parser: F) -> i64 {
     area + border_points / 2 + 1
 }
 
-fn solve_part2(input: &str) -> i64 {
+fn solve_part2_fast(input: &str) -> i64 {
     let input = input.as_bytes();
     let mut border_points = 0;
     let mut area = 0;
@@ -57,6 +69,27 @@ fn solve_part2(input: &str) -> i64 {
     area + border_points / 2 + 1
 }
 
+#[allow(unused)]
+fn solve<F: Fn(&[u8]) -> (Direction, i64)>(input: &str, parser: F) -> i64 {
+    let mut border_points = 0;
+    let mut area = 0;
+    let mut prev = Point::origin();
+    for (dir, distance) in input
+        .as_bytes()
+        .split(|&ch| ch == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(parser)
+    {
+        let next = prev.move_in_dir(dir, distance);
+        area += prev.x * next.y - prev.y * next.x;
+        border_points += distance;
+        prev = next;
+    }
+    area = area.abs() / 2;
+    area + border_points / 2 + 1
+}
+
+#[allow(unused)]
 fn parse_part1(line: &[u8]) -> (Direction, i64) {
     let dir: Direction = line[0].try_into().expect("valid direction");
     let distance = line[2..]
@@ -67,6 +100,7 @@ fn parse_part1(line: &[u8]) -> (Direction, i64) {
     (dir, distance)
 }
 
+#[allow(unused)]
 fn parse_part2(line: &[u8]) -> (Direction, i64) {
     let hex = &line[line.len() - 7..line.len() - 1];
     let dir: Direction = hex[5].try_into().expect("valid direction");
