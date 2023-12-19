@@ -128,7 +128,6 @@ fn parse_workflows<'a>(input: &'a [u8]) -> (Vec<Workflow>, u16) {
             })
             .collect::<Vec<_>>();
         let workflow = Workflow {
-            name: name_id,
             rules,
             default_rule,
         };
@@ -155,7 +154,6 @@ enum Category {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct Workflow {
-    name: u16,
     rules: Vec<Rule>,
     default_rule: Destination,
 }
