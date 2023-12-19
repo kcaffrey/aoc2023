@@ -21,7 +21,7 @@ fn solve_part1_fast(input: &str) -> i64 {
         }
         let distance: i64 = input[start + 2..=index]
             .iter()
-            .fold(0, |acc, &ch| (acc << 4) + ((ch - b'0') as i64));
+            .fold(0, |acc, &ch| (acc * 10) + ((ch - b'0') as i64));
         let next = match input[start] {
             b'R' => Point::new(prev.x + distance, prev.y),
             b'D' => Point::new(prev.x, prev.y + distance),
