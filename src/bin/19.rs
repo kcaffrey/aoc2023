@@ -35,12 +35,12 @@ pub fn part_two(input: &str) -> Option<u64> {
         .map(|w| (w.name, w))
         .collect::<HashMap<_, _>>();
 
-    // BFS until we find accept nodes. Each path to an accept node results
+    // DFS until we find accept nodes. Each path to an accept node results
     // in a volume of possible ratings. The union of those volumes is our answer.
-    let mut queue = VecDeque::new();
-    queue.push_back(("in", PartFilter::new(1, 4000)));
-    let mut accept_volumes = Vec::new();
-    while let Some((cur, filter)) = queue.pop_front() {
+    let mut stack = Vec::with_capacity(1000);
+    stack.push(("in", PartFilter::new(1, 4000)));
+    let mut accept_volumes = Vec::with_capacity(1000);
+    while let Some((cur, filter)) = stack.pop() {
         let workflow = &workflows[cur];
         let mut workflow_filter = Some(filter);
         for rule in &workflow.rules {
@@ -49,7 +49,7 @@ pub fn part_two(input: &str) -> Option<u64> {
             {
                 match rule.destination {
                     Destination::Accept => accept_volumes.push(new_filter),
-                    Destination::Next(d) => queue.push_back((d, new_filter)),
+                    Destination::Next(d) => stack.push((d, new_filter)),
                     Destination::Reject => {}
                 }
             }
@@ -62,7 +62,7 @@ pub fn part_two(input: &str) -> Option<u64> {
         if let Some(filter) = workflow_filter {
             match workflow.default_rule {
                 Destination::Accept => accept_volumes.push(filter),
-                Destination::Next(d) => queue.push_back((d, filter)),
+                Destination::Next(d) => stack.push((d, filter)),
                 Destination::Reject => {}
             }
         }
