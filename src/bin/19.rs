@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 advent_of_code::solution!(19);
 
@@ -39,7 +39,7 @@ pub fn part_two(input: &str) -> Option<u64> {
     // in a volume of possible ratings. The union of those volumes is our answer.
     let mut stack = Vec::with_capacity(1000);
     stack.push(("in", PartFilter::new(1, 4000)));
-    let mut accept_volumes = Vec::with_capacity(1000);
+    let mut volume = 0;
     while let Some((cur, filter)) = stack.pop() {
         let workflow = &workflows[cur];
         let mut workflow_filter = Some(filter);
@@ -48,7 +48,7 @@ pub fn part_two(input: &str) -> Option<u64> {
                 workflow_filter.and_then(|f| f.constrain(rule.category, rule.test))
             {
                 match rule.destination {
-                    Destination::Accept => accept_volumes.push(new_filter),
+                    Destination::Accept => volume += new_filter.volume(),
                     Destination::Next(d) => stack.push((d, new_filter)),
                     Destination::Reject => {}
                 }
@@ -61,18 +61,9 @@ pub fn part_two(input: &str) -> Option<u64> {
         }
         if let Some(filter) = workflow_filter {
             match workflow.default_rule {
-                Destination::Accept => accept_volumes.push(filter),
+                Destination::Accept => volume += filter.volume(),
                 Destination::Next(d) => stack.push((d, filter)),
                 Destination::Reject => {}
-            }
-        }
-    }
-    let mut volume = 0;
-    for (i, f1) in accept_volumes.iter().copied().enumerate() {
-        volume += f1.volume();
-        for f2 in accept_volumes.iter().copied().skip(i + 1) {
-            if let Some(intersection) = f1.intersection(f2) {
-                volume -= intersection.volume();
             }
         }
     }
@@ -260,15 +251,6 @@ impl PartFilter {
 
     pub fn volume(&self) -> u64 {
         self.x.len() as u64 * self.m.len() as u64 * self.a.len() as u64 * self.s.len() as u64
-    }
-
-    pub fn intersection(&self, other: Self) -> Option<Self> {
-        Some(Self {
-            x: self.x.intersection(other.x)?,
-            m: self.m.intersection(other.m)?,
-            a: self.a.intersection(other.a)?,
-            s: self.s.intersection(other.s)?,
-        })
     }
 }
 
