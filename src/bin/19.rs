@@ -70,27 +70,24 @@ fn parse_workflows(input: &str) -> (Vec<Workflow>, u16) {
     for line in input.lines() {
         let rule_start = line.find('{').unwrap();
         let name = &line[..rule_start];
-        let name_id = *name_to_id.entry(name).or_insert_with(|| {
-            let id = next_id;
-            next_id += 1;
-            id
-        });
+        let mut parse_name = |name| {
+            *name_to_id.entry(name).or_insert_with(|| {
+                let id = next_id;
+                next_id += 1;
+                id
+            })
+        };
+        let name_id = parse_name(name);
         if name == "in" {
             start = name_id;
         }
         let last_comma = line.rfind(',').unwrap();
-        let default_rule = match &line[last_comma + 1..line.len() - 1] {
+        let mut parse_destination = |destination| match destination {
             "A" => Destination::Accept,
             "R" => Destination::Reject,
-            d => {
-                let name_id = *name_to_id.entry(d).or_insert_with(|| {
-                    let id = next_id;
-                    next_id += 1;
-                    id
-                });
-                Destination::Next(name_id)
-            }
+            d => Destination::Next(parse_name(d)),
         };
+        let default_rule = parse_destination(&line[last_comma + 1..line.len() - 1]);
         let rules = line[rule_start + 1..last_comma]
             .split(',')
             .map(|s| {
@@ -102,18 +99,7 @@ fn parse_workflows(input: &str) -> (Vec<Workflow>, u16) {
                     '<' => RatingRange::less_than(value),
                     _ => unreachable!("unexpected rule test: {}", test),
                 };
-                let destination = match destination {
-                    "A" => Destination::Accept,
-                    "R" => Destination::Reject,
-                    d => {
-                        let name_id = *name_to_id.entry(d).or_insert_with(|| {
-                            let id = next_id;
-                            next_id += 1;
-                            id
-                        });
-                        Destination::Next(name_id)
-                    }
-                };
+                let destination = parse_destination(destination);
                 Rule {
                     category: category.into(),
                     test,
