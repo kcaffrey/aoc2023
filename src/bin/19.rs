@@ -4,16 +4,12 @@ advent_of_code::solution!(19);
 
 pub fn part_one(input: &str) -> Option<u32> {
     let (workflows, parts) = input.split_once("\n\n").unwrap();
-    let workflows = workflows
-        .lines()
-        .map(Workflow::from)
-        .map(|w| (w.name, w))
-        .collect::<HashMap<_, _>>();
+    let (workflows, start) = parse_workflows(workflows);
     let mut sum = 0;
     for part in parts.lines().map(Part::from) {
-        let mut cur = "in";
+        let mut cur = start;
         loop {
-            let workflow = &workflows[cur];
+            let workflow = &workflows[cur as usize];
             cur = match workflow.next(part) {
                 Destination::Accept => {
                     sum += part.rating_sum();
@@ -29,19 +25,15 @@ pub fn part_one(input: &str) -> Option<u32> {
 
 pub fn part_two(input: &str) -> Option<u64> {
     let (workflows, _) = input.split_once("\n\n").unwrap();
-    let workflows = workflows
-        .lines()
-        .map(Workflow::from)
-        .map(|w| (w.name, w))
-        .collect::<HashMap<_, _>>();
+    let (workflows, start) = parse_workflows(workflows);
 
     // DFS until we find accept nodes. Each path to an accept node results
     // in a volume of possible ratings. The union of those volumes is our answer.
     let mut stack = Vec::new();
-    stack.push(("in", PartFilter::new(1, 4000)));
+    stack.push((start, PartFilter::new(1, 4000)));
     let mut volume = 0;
     while let Some((cur, filter)) = stack.pop() {
-        let workflow = &workflows[cur];
+        let workflow = &workflows[cur as usize];
         let mut workflow_filter = Some(filter);
         for rule in &workflow.rules {
             if let Some(new_filter) =
@@ -70,6 +62,78 @@ pub fn part_two(input: &str) -> Option<u64> {
     Some(volume)
 }
 
+fn parse_workflows(input: &str) -> (Vec<Workflow>, u16) {
+    let mut next_id = 0;
+    let mut name_to_id = HashMap::new();
+    let mut workflows = Vec::new();
+    let mut start = 0;
+    for line in input.lines() {
+        let rule_start = line.find('{').unwrap();
+        let name = &line[..rule_start];
+        let name_id = *name_to_id.entry(name).or_insert_with(|| {
+            let id = next_id;
+            next_id += 1;
+            id
+        });
+        if name == "in" {
+            start = name_id;
+        }
+        let last_comma = line.rfind(',').unwrap();
+        let default_rule = match &line[last_comma + 1..line.len() - 1] {
+            "A" => Destination::Accept,
+            "R" => Destination::Reject,
+            d => {
+                let name_id = *name_to_id.entry(d).or_insert_with(|| {
+                    let id = next_id;
+                    next_id += 1;
+                    id
+                });
+                Destination::Next(name_id)
+            }
+        };
+        let rules = line[rule_start + 1..last_comma]
+            .split(',')
+            .map(|s| {
+                let (test, destination) = s.split_once(':').unwrap();
+                let (category, value) = test.split_once(|ch| ch == '<' || ch == '>').unwrap();
+                let value = value.parse::<u32>().unwrap();
+                let test = match test.chars().nth(1).unwrap() {
+                    '>' => RatingRange::greater_than(value),
+                    '<' => RatingRange::less_than(value),
+                    _ => unreachable!("unexpected rule test: {}", test),
+                };
+                let destination = match destination {
+                    "A" => Destination::Accept,
+                    "R" => Destination::Reject,
+                    d => {
+                        let name_id = *name_to_id.entry(d).or_insert_with(|| {
+                            let id = next_id;
+                            next_id += 1;
+                            id
+                        });
+                        Destination::Next(name_id)
+                    }
+                };
+                Rule {
+                    category: category.into(),
+                    test,
+                    destination,
+                }
+            })
+            .collect::<Vec<_>>();
+        let workflow = Workflow {
+            name: name_id,
+            rules,
+            default_rule,
+        };
+        if name_id as usize >= workflows.len() {
+            workflows.resize_with(name_id as usize + 1, Workflow::default);
+        }
+        workflows[name_id as usize] = workflow;
+    }
+    (workflows, start)
+}
+
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
 struct Part {
     x: u32,
@@ -86,25 +150,26 @@ enum Category {
     S,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct Workflow<'a> {
-    name: &'a str,
-    rules: Vec<Rule<'a>>,
-    default_rule: Destination<'a>,
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+struct Workflow {
+    name: u16,
+    rules: Vec<Rule>,
+    default_rule: Destination,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct Rule<'a> {
+struct Rule {
     category: Category,
     test: RatingRange,
-    destination: Destination<'a>,
+    destination: Destination,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-enum Destination<'a> {
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
+enum Destination {
     Accept,
+    #[default]
     Reject,
-    Next(&'a str),
+    Next(u16),
 }
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
@@ -121,8 +186,8 @@ struct PartFilter {
     s: RatingRange,
 }
 
-impl<'a> Workflow<'a> {
-    pub fn next(&self, part: Part) -> Destination<'a> {
+impl Workflow {
+    pub fn next(&self, part: Part) -> Destination {
         self.rules
             .iter()
             .filter_map(|&rule| rule.test(part))
@@ -131,8 +196,8 @@ impl<'a> Workflow<'a> {
     }
 }
 
-impl<'a> Rule<'a> {
-    pub fn test(&self, part: Part) -> Option<Destination<'a>> {
+impl Rule {
+    pub fn test(&self, part: Part) -> Option<Destination> {
         self.test
             .contains(part.get(self.category))
             .then_some(self.destination)
@@ -251,48 +316,6 @@ impl PartFilter {
 
     pub fn volume(&self) -> u64 {
         self.x.len() as u64 * self.m.len() as u64 * self.a.len() as u64 * self.s.len() as u64
-    }
-}
-
-impl<'a> From<&'a str> for Workflow<'a> {
-    fn from(s: &'a str) -> Self {
-        let rule_start = s.find('{').unwrap();
-        let name = &s[..rule_start];
-        let last_comma = s.rfind(',').unwrap();
-        let default_rule = s[last_comma + 1..s.len() - 1].into();
-        let rules = s[rule_start + 1..last_comma]
-            .split(',')
-            .map(|s| {
-                let (test, destination) = s.split_once(':').unwrap();
-                let (category, value) = test.split_once(|ch| ch == '<' || ch == '>').unwrap();
-                let value = value.parse::<u32>().unwrap();
-                let test = match test.chars().nth(1).unwrap() {
-                    '>' => RatingRange::greater_than(value),
-                    '<' => RatingRange::less_than(value),
-                    _ => unreachable!("unexpected rule test: {}", test),
-                };
-                Rule {
-                    category: category.into(),
-                    test,
-                    destination: destination.into(),
-                }
-            })
-            .collect::<Vec<_>>();
-        Self {
-            name,
-            rules,
-            default_rule,
-        }
-    }
-}
-
-impl<'a> From<&'a str> for Destination<'a> {
-    fn from(value: &'a str) -> Self {
-        match value {
-            "A" => Destination::Accept,
-            "R" => Destination::Reject,
-            d => Destination::Next(d),
-        }
     }
 }
 
