@@ -13,24 +13,23 @@ fn solve_part1_fast(input: &str) -> i64 {
     let mut border_points = 0;
     let mut area = 0;
     let mut prev = Point::new(0, 0);
-    let mut index = 0;
+    let mut index = 3;
     while index < input.len() - 1 {
-        let end_of_distance = if input[index + 3] == b' ' {
-            index + 2
-        } else {
-            index + 3
-        };
-        let distance: i64 = input[index + 2..=end_of_distance]
+        let start = index - 3;
+        if input[index] == b' ' {
+            index -= 1;
+        }
+        let distance: i64 = input[start + 2..=index]
             .iter()
             .fold(0, |acc, &ch| (acc << 4) + ((ch - b'0') as i64));
-        let next = match input[index] {
+        let next = match input[start] {
             b'R' => Point::new(prev.x + distance, prev.y),
             b'D' => Point::new(prev.x, prev.y + distance),
             b'L' => Point::new(prev.x - distance, prev.y),
             b'U' => Point::new(prev.x, prev.y - distance),
             _ => unreachable!(),
         };
-        index = end_of_distance + 12;
+        index += 15;
         area += prev.x * next.y - prev.y * next.x;
         border_points += distance;
         prev = next;
