@@ -4,7 +4,7 @@ advent_of_code::solution!(19);
 
 pub fn part_one(input: &str) -> Option<u32> {
     let (workflows, parts) = input.split_once("\n\n").unwrap();
-    let (workflows, start) = parse_workflows(workflows);
+    let (workflows, start) = parse_workflows(workflows.as_bytes());
     let mut sum = 0;
     for part in parts.lines().map(Part::from) {
         let mut cur = start;
@@ -25,7 +25,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 
 pub fn part_two(input: &str) -> Option<u64> {
     let (workflows, _) = input.split_once("\n\n").unwrap();
-    let (workflows, start) = parse_workflows(workflows);
+    let (workflows, start) = parse_workflows(workflows.as_bytes());
 
     // DFS until we find accept nodes. Each path to an accept node results
     // in a volume of possible ratings. The union of those volumes is our answer.
@@ -62,15 +62,18 @@ pub fn part_two(input: &str) -> Option<u64> {
     Some(volume)
 }
 
-fn parse_workflows(input: &str) -> (Vec<Workflow>, u16) {
+fn parse_workflows<'a>(input: &'a [u8]) -> (Vec<Workflow>, u16) {
     let mut next_id = 0;
     let mut name_to_id = HashMap::new();
     let mut workflows = Vec::new();
     let mut start = 0;
-    for line in input.lines() {
-        let rule_start = line.find('{').unwrap();
+    for line in input
+        .split(|&ch| ch == b'\n')
+        .filter(|line| !line.is_empty())
+    {
+        let rule_start = line.iter().position(|&ch| ch == b'{').unwrap();
         let name = &line[..rule_start];
-        let mut parse_name = |name| {
+        let mut parse_name = |name: &'a [u8]| {
             *name_to_id.entry(name).or_insert_with(|| {
                 let id = next_id;
                 next_id += 1;
@@ -78,30 +81,34 @@ fn parse_workflows(input: &str) -> (Vec<Workflow>, u16) {
             })
         };
         let name_id = parse_name(name);
-        if name == "in" {
+        if *name == [b'i', b'n'] {
             start = name_id;
         }
-        let last_comma = line.rfind(',').unwrap();
-        let mut parse_destination = |destination| match destination {
-            "A" => Destination::Accept,
-            "R" => Destination::Reject,
-            d => Destination::Next(parse_name(d)),
+        let last_comma = line.iter().rposition(|&ch| ch == b',').unwrap();
+        let mut parse_destination = |destination: &'a [u8]| match *destination {
+            [b'A'] => Destination::Accept,
+            [b'R'] => Destination::Reject,
+            _ => Destination::Next(parse_name(destination)),
         };
         let default_rule = parse_destination(&line[last_comma + 1..line.len() - 1]);
         let rules = line[rule_start + 1..last_comma]
-            .split(',')
+            .split(|&ch| ch == b',')
             .map(|s| {
-                let (test, destination) = s.split_once(':').unwrap();
-                let (category, value) = test.split_once(|ch| ch == '<' || ch == '>').unwrap();
-                let value = value.parse::<u32>().unwrap();
-                let test = match test.chars().nth(1).unwrap() {
-                    '>' => RatingRange::greater_than(value),
-                    '<' => RatingRange::less_than(value),
-                    _ => unreachable!("unexpected rule test: {}", test),
+                let colon_index = s.iter().position(|&ch| ch == b':').unwrap();
+                let (test, destination) = (&s[..colon_index], &s[colon_index + 1..]);
+                let (category, value) = (test[0].into(), &test[2..]);
+                let value = value
+                    .iter()
+                    .copied()
+                    .fold(0, |acc, ch| acc * 10 + (ch - b'0') as u32);
+                let test = match test[1] {
+                    b'>' => RatingRange::greater_than(value),
+                    b'<' => RatingRange::less_than(value),
+                    _ => unreachable!("unexpected rule test: {}", test[1]),
                 };
                 let destination = parse_destination(destination);
                 Rule {
-                    category: category.into(),
+                    category,
                     test,
                     destination,
                 }
@@ -312,7 +319,7 @@ impl From<&str> for Part {
         for rating in value.split(',') {
             let (category, value) = rating.split_once('=').unwrap();
             let value = value.parse::<u32>().unwrap();
-            match Category::from(category) {
+            match Category::from(category.as_bytes()[0]) {
                 Category::X => part.x = value,
                 Category::M => part.m = value,
                 Category::A => part.a = value,
@@ -323,13 +330,13 @@ impl From<&str> for Part {
     }
 }
 
-impl From<&str> for Category {
-    fn from(value: &str) -> Self {
+impl From<u8> for Category {
+    fn from(value: u8) -> Self {
         match value {
-            "x" => Self::X,
-            "m" => Self::M,
-            "a" => Self::A,
-            "s" => Self::S,
+            b'x' => Self::X,
+            b'm' => Self::M,
+            b'a' => Self::A,
+            b's' => Self::S,
             _ => unreachable!("invalid category: {}", value),
         }
     }
