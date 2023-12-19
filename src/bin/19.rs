@@ -1,12 +1,23 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
+
 advent_of_code::solution!(19);
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let (workflows, parts) = input.split_once("\n\n").unwrap();
-    let (workflows, start) = parse_workflows(workflows.as_bytes());
+    let mut input = input.as_bytes();
+    let end_workflows = input
+        .iter()
+        .tuple_windows()
+        .position(|(&a, &b)| a == b'\n' && b == b'\n')
+        .unwrap();
+    let (workflows, start) = parse_workflows(&input[..end_workflows]);
     let mut sum = 0;
-    for part in parts.lines().map(Part::from) {
+    if input[input.len() - 1] == b'\n' {
+        input = &input[..input.len() - 1];
+    }
+    for line in input[end_workflows + 2..].split(|&ch| ch == b'\n') {
+        let part = line.into();
         let mut cur = start;
         loop {
             let workflow = &workflows[cur as usize];
@@ -24,8 +35,13 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
-    let (workflows, _) = input.split_once("\n\n").unwrap();
-    let (workflows, start) = parse_workflows(workflows.as_bytes());
+    let input = input.as_bytes();
+    let end = input
+        .iter()
+        .tuple_windows()
+        .position(|(&a, &b)| a == b'\n' && b == b'\n')
+        .unwrap();
+    let (workflows, start) = parse_workflows(&input[..end]);
 
     // DFS until we find accept nodes. Each path to an accept node results
     // in a volume of possible ratings. The union of those volumes is our answer.
@@ -67,10 +83,7 @@ fn parse_workflows<'a>(input: &'a [u8]) -> (Vec<Workflow>, u16) {
     let mut name_to_id = HashMap::new();
     let mut workflows = Vec::new();
     let mut start = 0;
-    for line in input
-        .split(|&ch| ch == b'\n')
-        .filter(|line| !line.is_empty())
-    {
+    for line in input.split(|&ch| ch == b'\n') {
         let rule_start = line.iter().position(|&ch| ch == b'{').unwrap();
         let name = &line[..rule_start];
         let mut parse_name = |name: &'a [u8]| {
@@ -312,14 +325,15 @@ impl PartFilter {
     }
 }
 
-impl From<&str> for Part {
-    fn from(value: &str) -> Self {
-        let value = value.trim_matches(|ch| ch == '{' || ch == '}');
+impl From<&[u8]> for Part {
+    fn from(value: &[u8]) -> Self {
+        let value = &value[1..value.len() - 1];
         let mut part = Self::default();
-        for rating in value.split(',') {
-            let (category, value) = rating.split_once('=').unwrap();
-            let value = value.parse::<u32>().unwrap();
-            match Category::from(category.as_bytes()[0]) {
+        for rating in value.split(|&ch| ch == b',') {
+            let value = rating[2..]
+                .iter()
+                .fold(0, |acc, &ch| acc * 10 + (ch - b'0') as u32);
+            match Category::from(rating[0]) {
                 Category::X => part.x = value,
                 Category::M => part.m = value,
                 Category::A => part.a = value,
