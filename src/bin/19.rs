@@ -37,7 +37,7 @@ pub fn part_two(input: &str) -> Option<u64> {
 
     // DFS until we find accept nodes. Each path to an accept node results
     // in a volume of possible ratings. The union of those volumes is our answer.
-    let mut stack = Vec::with_capacity(1000);
+    let mut stack = Vec::new();
     stack.push(("in", PartFilter::new(1, 4000)));
     let mut volume = 0;
     while let Some((cur, filter)) = stack.pop() {
