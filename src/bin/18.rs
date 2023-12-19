@@ -29,8 +29,14 @@ fn solve_part1_fast(input: &str) -> i64 {
             b'U' => Point::new(prev.x, prev.y - distance),
             _ => unreachable!(),
         };
+        area += match input[start] {
+            b'R' => -next.y * distance,
+            b'D' => next.x * distance,
+            b'L' => next.y * distance,
+            b'U' => -next.x * distance,
+            _ => unreachable!(),
+        };
         index += 15;
-        area += prev.x * next.y - prev.y * next.x;
         border_points += distance;
         prev = next;
     }
@@ -59,8 +65,14 @@ fn solve_part2_fast(input: &str) -> i64 {
             b'3' => Point::new(prev.x, prev.y - distance),
             _ => unreachable!(),
         };
+        area += match input[index + 5] {
+            b'0' => -next.y * distance,
+            b'1' => next.x * distance,
+            b'2' => next.y * distance,
+            b'3' => -next.x * distance,
+            _ => unreachable!(),
+        };
         index += 14;
-        area += prev.x * next.y - prev.y * next.x;
         border_points += distance;
         prev = next;
     }
