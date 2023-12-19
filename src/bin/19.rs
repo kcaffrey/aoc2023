@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use fxhash::FxHashMap;
 use itertools::Itertools;
 
 advent_of_code::solution!(19);
@@ -80,8 +79,9 @@ pub fn part_two(input: &str) -> Option<u64> {
 
 fn parse_workflows<'a>(input: &'a [u8]) -> (Vec<Workflow>, u16) {
     let mut next_id = 0;
-    let mut name_to_id = HashMap::new();
-    let mut workflows = Vec::new();
+    let num_workflows = input.iter().filter(|&&ch| ch == b'\n').count() + 1;
+    let mut name_to_id = FxHashMap::with_capacity_and_hasher(num_workflows, Default::default());
+    let mut workflows = vec![Workflow::default(); num_workflows];
     let mut start = 0;
     for line in input.split(|&ch| ch == b'\n') {
         let rule_start = line.iter().position(|&ch| ch == b'{').unwrap();
@@ -132,9 +132,6 @@ fn parse_workflows<'a>(input: &'a [u8]) -> (Vec<Workflow>, u16) {
             rules,
             default_rule,
         };
-        if name_id as usize >= workflows.len() {
-            workflows.resize_with(name_id as usize + 1, Workflow::default);
-        }
         workflows[name_id as usize] = workflow;
     }
     (workflows, start)
