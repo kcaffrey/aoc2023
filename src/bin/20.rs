@@ -8,7 +8,6 @@ pub fn part_one(input: &str) -> Option<u64> {
     let mut high_pulses = 0;
     let mut queue = VecDeque::with_capacity(64);
     for _ in 0..1000 {
-        queue.clear();
         queue.push_back((network.broadcaster_id, false, network.broadcaster_id));
         while let Some((id, pulse, from)) = queue.pop_front() {
             if pulse {
@@ -34,7 +33,6 @@ pub fn part_two(input: &str) -> Option<u64> {
     let mut queue = VecDeque::with_capacity(64);
     while cycles.len() < network.leads_to_rx.len() {
         button_presses += 1;
-        queue.clear();
         queue.push_back((network.broadcaster_id, false, network.broadcaster_id));
         let mut pulsed = [false; 64];
         while let Some((id, pulse, from)) = queue.pop_front() {
