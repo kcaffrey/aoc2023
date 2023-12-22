@@ -72,7 +72,6 @@ struct Brick {
 #[derive(Debug, Default, Clone)]
 struct Tower {
     bricks: Vec<Brick>,
-    brick_heights: Vec<u16>,
     supports: Vec<FxHashSet<usize>>,
     supported: Vec<FxHashSet<usize>>,
     xy_heights: FxHashMap<Point2, (usize, u16)>,
@@ -82,14 +81,12 @@ impl Tower {
     pub fn from_bricks(bricks: Vec<Brick>) -> Self {
         let mut ret = Self::default();
         ret.bricks = bricks;
-        ret.brick_heights = vec![0; ret.bricks.len()];
         ret.supports = vec![Default::default(); ret.bricks.len()];
         ret.supported = vec![Default::default(); ret.bricks.len()];
         for i in 0..ret.bricks.len() {
             let brick = ret.bricks[i];
             let (_, floor_height) = ret.get_max_height(brick);
             let brick_height = brick.ends[1].z - brick.ends[0].z + floor_height + 1;
-            ret.brick_heights[i] = floor_height + 1;
             for point in brick.xy_points() {
                 let (loadbearing_index, loadbearing_height) = ret.get_height(point);
                 if loadbearing_height == floor_height && loadbearing_height > 0 {
