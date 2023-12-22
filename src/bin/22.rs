@@ -1,4 +1,5 @@
 use fxhash::{FxHashMap, FxHashSet};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 advent_of_code::solution!(22);
 
@@ -21,30 +22,33 @@ pub fn part_two(input: &str) -> Option<u32> {
     let mut bricks = input.lines().map(Brick::from).collect::<Vec<_>>();
     bricks.sort_unstable();
     let tower = Tower::from_bricks(bricks);
-    let mut visited = vec![false; tower.bricks.len()];
-    let mut stack = Vec::new();
-    let mut fall_count = 0;
-    for brick in 0..tower.bricks.len() {
-        visited.fill(false);
-        visited[brick] = true;
-        stack.push(brick);
-        while let Some(cur) = stack.pop() {
-            for &supported in &tower.supports[cur] {
-                let loose = tower.supported[supported]
-                    .iter()
-                    .filter(|&&base| !visited[base])
-                    .count()
-                    == 0;
-                if loose && !visited[supported] {
-                    visited[supported] = true;
-                    stack.push(supported);
-                    fall_count += 1;
+    Some(
+        (0..tower.bricks.len())
+            .into_par_iter()
+            .map(|brick| {
+                let mut fall_count = 0;
+                let mut visited = vec![false; tower.bricks.len()];
+                let mut stack = Vec::new();
+                visited[brick] = true;
+                stack.push(brick);
+                while let Some(cur) = stack.pop() {
+                    for &supported in &tower.supports[cur] {
+                        let loose = tower.supported[supported]
+                            .iter()
+                            .filter(|&&base| !visited[base])
+                            .count()
+                            == 0;
+                        if loose && !visited[supported] {
+                            visited[supported] = true;
+                            stack.push(supported);
+                            fall_count += 1;
+                        }
+                    }
                 }
-            }
-        }
-    }
-
-    Some(fall_count as u32)
+                fall_count
+            })
+            .sum::<u32>(),
+    )
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
