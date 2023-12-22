@@ -37,7 +37,9 @@ pub fn part_two(input: &str) -> Option<u32> {
                                 == 0;
                             if loose {
                                 visited[supported] = true;
-                                stack.push(supported);
+                                if !tower.supports[supported].is_empty() {
+                                    stack.push(supported);
+                                }
                                 fall_count += 1;
                             }
                         }
