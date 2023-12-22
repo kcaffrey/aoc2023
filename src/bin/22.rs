@@ -1,4 +1,3 @@
-use fxhash::FxHashSet;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 advent_of_code::solution!(22);
@@ -29,15 +28,17 @@ pub fn part_two(input: &str) -> Option<u32> {
                 stack.push(brick);
                 while let Some(cur) = stack.pop() {
                     for &supported in &tower.supports[cur] {
-                        let loose = tower.supported[supported]
-                            .iter()
-                            .filter(|&&base| !visited[base])
-                            .count()
-                            == 0;
-                        if loose && !visited[supported] {
-                            visited[supported] = true;
-                            stack.push(supported);
-                            fall_count += 1;
+                        if !visited[supported] {
+                            let loose = tower.supported[supported]
+                                .iter()
+                                .filter(|&&base| !visited[base])
+                                .count()
+                                == 0;
+                            if loose {
+                                visited[supported] = true;
+                                stack.push(supported);
+                                fall_count += 1;
+                            }
                         }
                     }
                 }
@@ -137,8 +138,8 @@ struct Brick {
 #[derive(Debug, Clone)]
 struct Tower {
     bricks: Vec<Brick>,
-    supports: Vec<FxHashSet<usize>>,
-    supported: Vec<FxHashSet<usize>>,
+    supports: Vec<Vec<usize>>,
+    supported: Vec<Vec<usize>>,
     top_view: Grid2<(usize, u16)>,
 }
 
@@ -157,8 +158,12 @@ impl Tower {
             for point in brick.xy_points() {
                 let (loadbearing_index, loadbearing_height) = ret.top_view.get(point);
                 if loadbearing_height == floor_height && loadbearing_height > 0 {
-                    ret.supported[i].insert(loadbearing_index);
-                    ret.supports[loadbearing_index].insert(i);
+                    if !ret.supported[i].contains(&loadbearing_index) {
+                        ret.supported[i].push(loadbearing_index);
+                    }
+                    if !ret.supports[loadbearing_index].contains(&i) {
+                        ret.supports[loadbearing_index].push(i);
+                    }
                 }
                 ret.top_view.set(point, (i, brick_height));
             }
