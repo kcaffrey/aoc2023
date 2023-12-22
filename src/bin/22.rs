@@ -24,7 +24,7 @@ pub fn part_two(input: &str) -> Option<u32> {
             .map(|brick| {
                 let mut fall_count = 0;
                 let mut visited = vec![false; tower.bricks.len()];
-                let mut stack = Vec::new();
+                let mut stack = Vec::with_capacity(16);
                 visited[brick] = true;
                 stack.push(brick);
                 while let Some(cur) = stack.pop() {
