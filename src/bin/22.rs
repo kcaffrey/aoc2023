@@ -139,8 +139,8 @@ struct Brick {
 #[derive(Debug, Clone)]
 struct Tower {
     bricks: Vec<Brick>,
-    supports: Vec<SmallVec<[usize; 16]>>,
-    supported: Vec<SmallVec<[usize; 16]>>,
+    supports: Vec<SmallVec<[usize; 4]>>,
+    supported: Vec<SmallVec<[usize; 4]>>,
     top_view: Grid2<(usize, u16)>,
 }
 
