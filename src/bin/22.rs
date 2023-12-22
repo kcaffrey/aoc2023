@@ -1,4 +1,4 @@
-use fxhash::{FxHashMap, FxHashSet};
+use fxhash::FxHashSet;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 advent_of_code::solution!(22);
@@ -64,49 +64,59 @@ struct Point2 {
     y: u16,
 }
 
+#[derive(Debug, Clone)]
+struct Grid2<T> {
+    cells: Vec<T>,
+    y_limit: usize,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Ord, PartialOrd)]
 struct Brick {
     ends: [Point3; 2],
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 struct Tower {
     bricks: Vec<Brick>,
     supports: Vec<FxHashSet<usize>>,
     supported: Vec<FxHashSet<usize>>,
-    xy_heights: FxHashMap<Point2, (usize, u16)>,
+    top_view: Grid2<(usize, u16)>,
 }
 
 impl Tower {
     pub fn from_bricks(bricks: Vec<Brick>) -> Self {
-        let mut ret = Self::default();
-        ret.bricks = bricks;
-        ret.supports = vec![Default::default(); ret.bricks.len()];
-        ret.supported = vec![Default::default(); ret.bricks.len()];
+        let (max_x, max_y) = bricks
+            .iter()
+            .copied()
+            .map(|b| (b.ends[1].x, b.ends[1].y))
+            .reduce(|(max_x, max_y), (x, y)| (max_x.max(x), max_y.max(y)))
+            .unwrap();
+        let mut ret = Self {
+            top_view: Grid2::new(max_x, max_y),
+            supports: vec![Default::default(); bricks.len()],
+            supported: vec![Default::default(); bricks.len()],
+            bricks,
+        };
         for i in 0..ret.bricks.len() {
             let brick = ret.bricks[i];
             let (_, floor_height) = ret.get_max_height(brick);
             let brick_height = brick.ends[1].z - brick.ends[0].z + floor_height + 1;
             for point in brick.xy_points() {
-                let (loadbearing_index, loadbearing_height) = ret.get_height(point);
+                let (loadbearing_index, loadbearing_height) = ret.top_view.get(point);
                 if loadbearing_height == floor_height && loadbearing_height > 0 {
                     ret.supported[i].insert(loadbearing_index);
                     ret.supports[loadbearing_index].insert(i);
                 }
-                ret.xy_heights.insert(point, (i, brick_height));
+                ret.top_view.set(point, (i, brick_height));
             }
         }
         ret
     }
 
-    pub fn get_height(&self, xy: Point2) -> (usize, u16) {
-        self.xy_heights.get(&xy).copied().unwrap_or((0, 0))
-    }
-
-    pub fn get_max_height(&self, brick: Brick) -> (usize, u16) {
+    fn get_max_height(&self, brick: Brick) -> (usize, u16) {
         brick
             .xy_points()
-            .map(|p| self.get_height(p))
+            .map(|p| self.top_view.get(p))
             .max_by_key(|&(_, h)| h)
             .unwrap_or((0, 0))
     }
@@ -126,6 +136,25 @@ impl Point3 {
 impl Point2 {
     pub const fn new(x: u16, y: u16) -> Self {
         Self { x, y }
+    }
+}
+
+impl<T: Default + Clone> Grid2<T> {
+    pub fn new(max_x: u16, max_y: u16) -> Self {
+        Self {
+            cells: vec![Default::default(); (max_x as usize + 1) * (max_y as usize + 1)],
+            y_limit: max_y as usize + 1,
+        }
+    }
+}
+
+impl<T: Copy> Grid2<T> {
+    pub fn get(&self, p: Point2) -> T {
+        self.cells[p.x as usize * self.y_limit + p.y as usize]
+    }
+
+    pub fn set(&mut self, p: Point2, value: T) {
+        self.cells[p.x as usize * self.y_limit + p.y as usize] = value;
     }
 }
 
