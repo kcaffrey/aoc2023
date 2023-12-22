@@ -21,26 +21,27 @@ pub fn part_two(input: &str) -> Option<u32> {
     let mut bricks = input.lines().map(Brick::from).collect::<Vec<_>>();
     bricks.sort_unstable();
     let tower = Tower::from_bricks(bricks);
-    let mut visited = FxHashSet::default();
+    let mut visited = vec![false; tower.bricks.len()];
     let mut stack = Vec::new();
     let mut fall_count = 0;
     for brick in 0..tower.bricks.len() {
-        visited.clear();
-        visited.insert(brick);
+        visited.fill(false);
+        visited[brick] = true;
         stack.push(brick);
         while let Some(cur) = stack.pop() {
             for &supported in &tower.supports[cur] {
                 let loose = tower.supported[supported]
                     .iter()
-                    .filter(|&base| !visited.contains(base))
+                    .filter(|&&base| !visited[base])
                     .count()
                     == 0;
-                if loose && visited.insert(supported) {
+                if loose && !visited[supported] {
+                    visited[supported] = true;
                     stack.push(supported);
+                    fall_count += 1;
                 }
             }
         }
-        fall_count += visited.len() - 1;
     }
 
     Some(fall_count as u32)
