@@ -1,4 +1,5 @@
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use smallvec::SmallVec;
 
 advent_of_code::solution!(22);
 
@@ -138,8 +139,8 @@ struct Brick {
 #[derive(Debug, Clone)]
 struct Tower {
     bricks: Vec<Brick>,
-    supports: Vec<Vec<usize>>,
-    supported: Vec<Vec<usize>>,
+    supports: Vec<SmallVec<[usize; 16]>>,
+    supported: Vec<SmallVec<[usize; 16]>>,
     top_view: Grid2<(usize, u16)>,
 }
 
