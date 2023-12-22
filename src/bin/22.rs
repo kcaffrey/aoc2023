@@ -4,9 +4,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 advent_of_code::solution!(22);
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let mut bricks = input.lines().map(Brick::from).collect::<Vec<_>>();
-    bricks.sort_unstable();
-    let tower = Tower::from_bricks(bricks);
+    let tower = build_tower(input);
     Some(
         (0..tower.bricks.len())
             .filter(|&brick| {
@@ -19,9 +17,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let mut bricks = input.lines().map(Brick::from).collect::<Vec<_>>();
-    bricks.sort_unstable();
-    let tower = Tower::from_bricks(bricks);
+    let tower = build_tower(input);
     Some(
         (0..tower.bricks.len())
             .into_par_iter()
@@ -49,6 +45,69 @@ pub fn part_two(input: &str) -> Option<u32> {
             })
             .sum::<u32>(),
     )
+}
+
+fn build_tower(input: &str) -> Tower {
+    let (mut bricks, (max_x, max_y)) = parse_input(input);
+    bricks.sort_unstable();
+    Tower::from_bricks(bricks, max_x, max_y)
+}
+
+fn parse_input(input: &str) -> (Vec<Brick>, (u16, u16)) {
+    let mut input = input.as_bytes();
+    let mut ret = Vec::with_capacity(input.len() / 16); // guess at total length
+    let mut max_x = 0;
+    let mut max_y = 0;
+
+    while input.len() > 1 {
+        let (rest, brick) = parse_brick(input);
+        input = rest;
+        if brick.ends[1].x > max_x {
+            max_x = brick.ends[1].x
+        }
+        if brick.ends[1].y > max_y {
+            max_y = brick.ends[1].y;
+        }
+        ret.push(brick);
+    }
+
+    (ret, (max_x, max_y))
+}
+
+fn parse_number(input: &[u8]) -> (&[u8], u16) {
+    let mut ret = 0;
+    for i in 0..input.len() {
+        let ch = input[i];
+        match ch {
+            b'0'..=b'9' => {
+                ret *= 10;
+                ret += (ch - b'0') as u16;
+            }
+            _ => {
+                return (&input[i..], ret);
+            }
+        }
+    }
+    (&input[input.len()..], ret)
+}
+
+fn parse_point3(input: &[u8]) -> (&[u8], Point3) {
+    let (input, x) = parse_number(input);
+    let (input, y) = parse_number(&input[1..]);
+    let (input, z) = parse_number(&input[1..]);
+    (input, Point3::new(x, y, z))
+}
+
+fn parse_brick(input: &[u8]) -> (&[u8], Brick) {
+    let (input, mut left) = parse_point3(input);
+    let (input, mut right) = parse_point3(&input[1..]);
+    if right < left {
+        std::mem::swap(&mut left, &mut right);
+    }
+    let brick = Brick {
+        ends: [left, right],
+    };
+    (&input[1..], brick)
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
@@ -84,13 +143,7 @@ struct Tower {
 }
 
 impl Tower {
-    pub fn from_bricks(bricks: Vec<Brick>) -> Self {
-        let (max_x, max_y) = bricks
-            .iter()
-            .copied()
-            .map(|b| (b.ends[1].x, b.ends[1].y))
-            .reduce(|(max_x, max_y), (x, y)| (max_x.max(x), max_y.max(y)))
-            .unwrap();
+    pub fn from_bricks(bricks: Vec<Brick>, max_x: u16, max_y: u16) -> Self {
         let mut ret = Self {
             top_view: Grid2::new(max_x, max_y),
             supports: vec![Default::default(); bricks.len()],
@@ -123,7 +176,6 @@ impl Tower {
 }
 
 impl Point3 {
-    #[allow(unused)]
     pub const fn new(x: u16, y: u16, z: u16) -> Self {
         Self { x, y, z }
     }
@@ -195,30 +247,6 @@ impl Ord for Point3 {
 impl PartialOrd for Point3 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
-    }
-}
-
-impl From<&str> for Brick {
-    fn from(value: &str) -> Self {
-        let (left, right) = value.split_once('~').unwrap();
-        let (mut left, mut right) = (Point3::from(left), Point3::from(right));
-        if right < left {
-            std::mem::swap(&mut left, &mut right);
-        }
-        Self {
-            ends: [left, right],
-        }
-    }
-}
-
-impl From<&str> for Point3 {
-    fn from(value: &str) -> Self {
-        let mut parts = value.split(',').map(|s| s.parse().unwrap());
-        Self {
-            x: parts.next().unwrap(),
-            y: parts.next().unwrap(),
-            z: parts.next().unwrap(),
-        }
     }
 }
 
