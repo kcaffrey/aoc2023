@@ -49,7 +49,7 @@ fn part_two_recursive_brute_force(
     }
 
     let mut max = 0;
-    for (neighbor, cost) in graph.adjacency[cur] {
+    for &(neighbor, cost) in &graph.adjacency[cur] {
         if visited[neighbor].is_none() {
             visited[neighbor] = Some(cur);
             let next_so_far =
@@ -71,7 +71,6 @@ fn build_graph(input: &str, obey_slopes: bool) -> (Graph, usize, usize) {
     let goal = Coordinate::new(height - 1, width - 2);
     let mut visited = vec![None; width * height];
     visited[1] = Some(0);
-    graph.debug_vertices.push(start);
     graph.vertices = 1;
     graph.adjacency.resize_with(1, ArrayVec::default);
     let mut stack = vec![(0, start, Coordinate::new(0, 0))];
@@ -140,7 +139,6 @@ fn build_graph(input: &str, obey_slopes: bool) -> (Graph, usize, usize) {
                 idx
             } else {
                 let idx = graph.vertices;
-                graph.debug_vertices.push(next_vertex);
                 graph.vertices += 1;
                 graph
                     .adjacency
@@ -161,7 +159,6 @@ fn build_graph(input: &str, obey_slopes: bool) -> (Graph, usize, usize) {
 
 #[derive(Debug, Default, Clone)]
 struct Graph {
-    debug_vertices: Vec<Coordinate>,
     vertices: usize,
     adjacency: Vec<ArrayVec<[(usize, u16); 4]>>,
 }
