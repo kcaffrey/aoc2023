@@ -1,4 +1,7 @@
-use std::collections::BinaryHeap;
+use std::{
+    collections::BinaryHeap,
+    fmt::{Display, Write},
+};
 
 use tinyvec::ArrayVec;
 
@@ -207,6 +210,36 @@ impl Coordinate {
 
 impl Direction {
     const ALL: [Self; 4] = [Self::Up, Self::Down, Self::Left, Self::Right];
+}
+
+impl Display for Graph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn format_vertex(vertex: usize) -> String {
+            let mut ret = String::new();
+            if vertex > 25 {
+                ret.push(char::from((vertex / 26) as u8 + b'A'));
+            }
+            ret.push(char::from((vertex % 26) as u8 + b'A'));
+            ret
+        }
+        for vertex in 0..self.vertices {
+            if !self.adjacency[vertex].is_empty() {
+                writeln!(
+                    f,
+                    "{} -> {{{}}}",
+                    format_vertex(vertex),
+                    self.adjacency[vertex]
+                        .iter()
+                        .fold(String::new(), |mut s, &(n, _)| {
+                            write!(&mut s, "{} ", format_vertex(n)).expect("should succeed");
+                            s
+                        })
+                        .trim_end()
+                )?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
