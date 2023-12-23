@@ -12,7 +12,7 @@ pub fn part_one(input: &str) -> Option<u16> {
     let mut queue = BinaryHeap::new();
     queue.push((0, start));
     while let Some((so_far, cur)) = queue.pop() {
-        for (next, cost) in graph.adjacency[cur] {
+        for &(next, cost) in &graph.adjacency[cur] {
             let next_so_far = so_far + cost;
             if next_so_far > best_so_far[next] {
                 best_so_far[next] = next_so_far;
@@ -25,16 +25,25 @@ pub fn part_one(input: &str) -> Option<u16> {
 }
 
 pub fn part_two(input: &str) -> Option<u16> {
-    let (graph, start, goal) = build_graph(input, false);
+    let (mut graph, start, mut goal) = build_graph(input, false);
+
+    // The goal usually only has one connection, so trim it to save on the search space.
+    let mut trimmed_length = 0;
+    while graph.adjacency[goal].len() == 1 {
+        let (new_goal, distance) = graph.adjacency[goal][0];
+        trimmed_length += distance;
+        graph.adjacency[goal].clear();
+        let idx = graph.adjacency[new_goal]
+            .iter()
+            .position(|&(adj, _)| adj == goal)
+            .unwrap();
+        graph.adjacency[new_goal].remove(idx);
+        goal = new_goal;
+    }
+
     let mut visited = vec![None; graph.vertices];
     visited[start] = Some(0);
-    Some(part_two_recursive_brute_force(
-        &graph,
-        start,
-        goal,
-        &mut visited,
-        0,
-    ))
+    Some(trimmed_length + part_two_recursive_brute_force(&graph, start, goal, &mut visited, 0))
 }
 
 fn part_two_recursive_brute_force(
