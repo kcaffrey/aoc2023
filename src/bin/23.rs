@@ -53,7 +53,7 @@ pub fn part_two(input: &str) -> Option<u16> {
     start = trim(start);
 
     // Find all paths to depth N iteratively to use rayon on the resulting paths.
-    const PRESEARCH_DEPTH: u8 = 2;
+    const PRESEARCH_DEPTH: u8 = 8;
     let mut paths = Vec::new();
     let mut stack = Vec::new();
     stack.push((start, 1u64 << start, 0, 0));
