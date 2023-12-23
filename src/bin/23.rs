@@ -27,6 +27,8 @@ pub fn part_one(input: &str) -> Option<u16> {
 pub fn part_two(input: &str) -> Option<u16> {
     let (mut graph, start, mut goal) = build_graph(input, false);
 
+    debug_assert!(graph.vertices <= 64, "some optimizations only work with 64 vertices or less. plus it will be too slow with high vertex counts");
+
     // The goal usually only has one connection, so trim it to save on the search space.
     let mut trimmed_length = 0;
     while graph.adjacency[goal].len() == 1 {
@@ -41,16 +43,14 @@ pub fn part_two(input: &str) -> Option<u16> {
         goal = new_goal;
     }
 
-    let mut visited = vec![false; graph.vertices];
-    visited[start] = true;
-    Some(trimmed_length + part_two_recursive_brute_force(&graph, start, goal, &mut visited, 0))
+    Some(trimmed_length + part_two_recursive_brute_force(&graph, start, goal, 1 << start, 0))
 }
 
 fn part_two_recursive_brute_force(
     graph: &Graph,
     cur: usize,
     goal: usize,
-    visited: &mut [bool],
+    visited: u64,
     so_far: u16,
 ) -> u16 {
     if cur == goal {
@@ -59,12 +59,16 @@ fn part_two_recursive_brute_force(
 
     let mut max = 0;
     for &(neighbor, cost) in &graph.adjacency[cur] {
-        if !visited[neighbor] {
-            visited[neighbor] = true;
-            let next_so_far =
-                part_two_recursive_brute_force(graph, neighbor, goal, visited, so_far + cost);
+        let neighbor_bit = 1 << neighbor;
+        if (visited & neighbor_bit) == 0 {
+            let next_so_far = part_two_recursive_brute_force(
+                graph,
+                neighbor,
+                goal,
+                visited | neighbor_bit,
+                so_far + cost,
+            );
             max = max.max(next_so_far);
-            visited[neighbor] = false;
         }
     }
 
