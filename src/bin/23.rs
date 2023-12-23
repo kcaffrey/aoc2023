@@ -41,8 +41,8 @@ pub fn part_two(input: &str) -> Option<u16> {
         goal = new_goal;
     }
 
-    let mut visited = vec![None; graph.vertices];
-    visited[start] = Some(0);
+    let mut visited = vec![false; graph.vertices];
+    visited[start] = true;
     Some(trimmed_length + part_two_recursive_brute_force(&graph, start, goal, &mut visited, 0))
 }
 
@@ -50,7 +50,7 @@ fn part_two_recursive_brute_force(
     graph: &Graph,
     cur: usize,
     goal: usize,
-    visited: &mut [Option<usize>],
+    visited: &mut [bool],
     so_far: u16,
 ) -> u16 {
     if cur == goal {
@@ -59,12 +59,12 @@ fn part_two_recursive_brute_force(
 
     let mut max = 0;
     for &(neighbor, cost) in &graph.adjacency[cur] {
-        if visited[neighbor].is_none() {
-            visited[neighbor] = Some(cur);
+        if !visited[neighbor] {
+            visited[neighbor] = true;
             let next_so_far =
                 part_two_recursive_brute_force(graph, neighbor, goal, visited, so_far + cost);
             max = max.max(next_so_far);
-            visited[neighbor] = None;
+            visited[neighbor] = false;
         }
     }
 
