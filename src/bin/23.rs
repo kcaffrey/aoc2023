@@ -3,6 +3,7 @@ use std::{
     fmt::{Display, Write},
 };
 
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tinyvec::ArrayVec;
 
 advent_of_code::solution!(23);
@@ -28,25 +29,53 @@ pub fn part_one(input: &str) -> Option<u16> {
 }
 
 pub fn part_two(input: &str) -> Option<u16> {
-    let (mut graph, start, mut goal) = build_graph(input, false);
+    let (mut graph, mut start, mut goal) = build_graph(input, false);
 
     debug_assert!(graph.vertices <= 64, "some optimizations only work with 64 vertices or less. plus it will be too slow with high vertex counts");
 
-    // The goal usually only has one connection, so trim it to save on the search space.
+    // The start and goal usually only has one connection, so trim it to save on the search space.
     let mut trimmed_length = 0;
-    while graph.adjacency[goal].len() == 1 {
-        let (new_goal, distance) = graph.adjacency[goal][0];
-        trimmed_length += distance;
-        graph.adjacency[goal].clear();
-        let idx = graph.adjacency[new_goal]
-            .iter()
-            .position(|&(adj, _)| adj == goal)
-            .unwrap();
-        graph.adjacency[new_goal].remove(idx);
-        goal = new_goal;
+    let mut trim = |mut cur: usize| {
+        while graph.adjacency[cur].len() == 1 {
+            let (new_cur, distance) = graph.adjacency[cur][0];
+            trimmed_length += distance;
+            graph.adjacency[cur].clear();
+            let idx = graph.adjacency[new_cur]
+                .iter()
+                .position(|&(adj, _)| adj == cur)
+                .unwrap();
+            graph.adjacency[new_cur].remove(idx);
+            cur = new_cur;
+        }
+        cur
+    };
+    goal = trim(goal);
+    start = trim(start);
+
+    // Find all paths to depth N iteratively to use rayon on the resulting paths.
+    const PRESEARCH_DEPTH: u8 = 2;
+    let mut paths = Vec::new();
+    let mut stack = Vec::new();
+    stack.push((start, 1u64 << start, 0, 0));
+    while let Some((cur, visited, distance, depth)) = stack.pop() {
+        if depth >= PRESEARCH_DEPTH || cur == goal {
+            paths.push((cur, visited, distance));
+            continue;
+        }
+        for &(neighbor, cost) in &graph.adjacency[cur] {
+            let neighbor_bit = 1u64 << neighbor;
+            if visited & neighbor_bit == 0 {
+                stack.push((neighbor, visited | neighbor_bit, distance + cost, depth + 1));
+            }
+        }
     }
 
-    Some(trimmed_length + part_two_recursive_brute_force(&graph, start, goal, 1 << start, 0))
+    paths
+        .into_par_iter()
+        .map(|(start, visited, distance)| {
+            trimmed_length + part_two_recursive_brute_force(&graph, start, goal, visited, distance)
+        })
+        .max()
 }
 
 fn part_two_recursive_brute_force(
