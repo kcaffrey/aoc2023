@@ -1,3 +1,5 @@
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 advent_of_code::solution!(24);
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -15,40 +17,43 @@ fn count_xy_intersections<T: AsRef<[Hailstone]>>(
     max_position: i64,
 ) -> u32 {
     let hailstones = hailstones.as_ref();
-    let mut count = 0;
-    for i in 0..hailstones.len() {
-        for j in i + 1..hailstones.len() {
-            let mut a = hailstones[i];
-            let mut b = hailstones[j];
-            if a.velocity.x == 0 || b.velocity.y * a.velocity.x == a.velocity.y * b.velocity.x {
-                std::mem::swap(&mut a, &mut b);
+    (0..hailstones.len())
+        .into_par_iter()
+        .map(|i| {
+            let mut count = 0;
+            for j in i + 1..hailstones.len() {
+                let mut a = hailstones[i];
+                let mut b = hailstones[j];
+                if a.velocity.x == 0 || b.velocity.y * a.velocity.x == a.velocity.y * b.velocity.x {
+                    std::mem::swap(&mut a, &mut b);
+                }
+                if a.velocity.x == 0 || b.velocity.y * a.velocity.x == a.velocity.y * b.velocity.x {
+                    // Can't intersect?
+                    continue;
+                }
+                let t = (a.position.y * a.velocity.x + a.velocity.y * b.position.x
+                    - a.velocity.y * a.position.x
+                    - b.position.y * a.velocity.x) as f64
+                    / (b.velocity.y * a.velocity.x - a.velocity.y * b.velocity.x) as f64;
+                let s = ((b.position.x - a.position.x) as f64 + b.velocity.x as f64 * t)
+                    / a.velocity.x as f64;
+                if t < 0.0 || s < 0.0 {
+                    // Intersection in past.
+                    continue;
+                }
+                let x = a.position.x as f64 + a.velocity.x as f64 * s;
+                let y = a.position.y as f64 + a.velocity.y as f64 * s;
+                if x >= min_position as f64
+                    && x <= max_position as f64
+                    && y >= min_position as f64
+                    && y <= max_position as f64
+                {
+                    count += 1;
+                }
             }
-            if a.velocity.x == 0 || b.velocity.y * a.velocity.x == a.velocity.y * b.velocity.x {
-                // Can't intersect?
-                continue;
-            }
-            let t = (a.position.y * a.velocity.x + a.velocity.y * b.position.x
-                - a.velocity.y * a.position.x
-                - b.position.y * a.velocity.x) as f64
-                / (b.velocity.y * a.velocity.x - a.velocity.y * b.velocity.x) as f64;
-            let s = ((b.position.x - a.position.x) as f64 + b.velocity.x as f64 * t)
-                / a.velocity.x as f64;
-            if t < 0.0 || s < 0.0 {
-                // Intersection in past.
-                continue;
-            }
-            let x = a.position.x as f64 + a.velocity.x as f64 * s;
-            let y = a.position.y as f64 + a.velocity.y as f64 * s;
-            if x >= min_position as f64
-                && x <= max_position as f64
-                && y >= min_position as f64
-                && y <= max_position as f64
-            {
-                count += 1;
-            }
-        }
-    }
-    count
+            count
+        })
+        .sum()
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
