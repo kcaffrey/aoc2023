@@ -1,3 +1,6 @@
+use itertools::Itertools;
+use ndarray::prelude::*;
+use ndarray_linalg::Solve;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 advent_of_code::solution!(24);
@@ -56,8 +59,78 @@ fn count_xy_intersections<T: AsRef<[Hailstone]>>(
         .sum()
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<i64> {
+    let hailstones = parse_hailstones(input);
+
+    let (mut p, v) = hailstones
+        .iter()
+        .copied()
+        .tuple_combinations()
+        .filter_map(|(h0, h1, h2)| {
+            let (x0, y0, z0) = h0.position.to_f64_tuple();
+            let (dx0, dy0, dz0) = h0.velocity.to_f64_tuple();
+            let (x1, y1, z1) = h1.position.to_f64_tuple();
+            let (dx1, dy1, dz1) = h1.velocity.to_f64_tuple();
+            let (x2, y2, z2) = h2.position.to_f64_tuple();
+            let (dx2, dy2, dz2) = h2.velocity.to_f64_tuple();
+            let a: Array2<f64> = array![
+                [0., dz1 - dz0, dy0 - dy1, 0., z0 - z1, y1 - y0],
+                [dz0 - dz1, 0., dx1 - dx0, z1 - z0, 0., x0 - x1],
+                [dy1 - dy0, dx0 - dx1, 0., y0 - y1, x1 - x0, 0.],
+                [0., dz2 - dz0, dy0 - dy2, 0., z0 - z2, y2 - y0],
+                [dz0 - dz2, 0., dx2 - dx0, z2 - z0, 0., x0 - x2],
+                [dy2 - dy0, dx0 - dx2, 0., y0 - y2, x2 - x0, 0.],
+            ];
+            let b: Array1<f64> = array![
+                y1 * dz1 + dy0 * z0 - y0 * dz0 - dy1 * z1,
+                z1 * dx1 + dz0 * x0 - z0 * dx0 - dz1 * x1,
+                x1 * dy1 + dx0 * y0 - x0 * dy0 - dx1 * y1,
+                y2 * dz2 + dy0 * z0 - y0 * dz0 - dy2 * z2,
+                z2 * dx2 + dz0 * x0 - z0 * dx0 - dz2 * x2,
+                x2 * dy2 + dx0 * y0 - x0 * dy0 - dx2 * y2,
+            ];
+            a.solve_into(b)
+                .map(|x| {
+                    (
+                        Point3::new(
+                            x[0].round() as i64,
+                            x[1].round() as i64,
+                            x[2].round() as i64,
+                        ),
+                        Point3::new(
+                            x[3].round() as i64,
+                            x[4].round() as i64,
+                            x[5].round() as i64,
+                        ),
+                    )
+                })
+                .ok()
+        })
+        .take(1)
+        .next()
+        .unwrap();
+
+    // Due to numerical precision issues, we may be slightly off on the x, y, and z coordinates.
+    // Double check and if necessary modify with hailstone intersections to check.
+    // For any hailstone, it's trivial to solve for t to find p + v * t = p0 + v0 * t
+    // If we get different values of t for any of x, y, and z, we should modify one
+    // component of the position vector to be consistent with the other two.
+    let h = hailstones
+        .into_iter()
+        .find(|h| h.velocity.x != v.x && h.velocity.y != v.y && h.velocity.z != v.z)
+        .unwrap();
+    let tx = (p.x - h.position.x) / (h.velocity.x - v.x);
+    let ty = (p.y - h.position.y) / (h.velocity.y - v.y);
+    let tz = (p.z - h.position.z) / (h.velocity.z - v.z);
+    if tx == ty && tx != tz {
+        p.z = h.position.z + h.velocity.z * tx - v.z * tx;
+    } else if tx == tz && tx != ty {
+        p.y = h.position.y + h.velocity.y * tx - v.y * tx;
+    } else if ty == tz && ty != tx {
+        p.x = h.position.x + h.velocity.x * ty - v.x * ty;
+    }
+
+    Some(p.x + p.y + p.z)
 }
 
 fn parse_hailstones(input: &str) -> Vec<Hailstone> {
@@ -131,6 +204,15 @@ struct Point3 {
     z: i64,
 }
 
+impl Point3 {
+    pub const fn new(x: i64, y: i64, z: i64) -> Self {
+        Self { x, y, z }
+    }
+    pub const fn to_f64_tuple(self) -> (f64, f64, f64) {
+        (self.x as f64, self.y as f64, self.z as f64)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,6 +227,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(47));
     }
 }
