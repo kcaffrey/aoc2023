@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use fxhash::{FxHashMap, FxHashSet};
+use fxhash::FxHashMap;
 
 advent_of_code::solution!(25, 1);
 
@@ -63,7 +63,10 @@ fn find_cut_of_size(net: &mut NetworkFlow, s: usize, t: usize, cut: i16) -> Opti
 }
 
 fn parse_graph(input: &str) -> Graph {
-    let mut graph_builder = GraphBuilder::default();
+    let mut graph_builder = GraphBuilder {
+        graph: Graph::default(),
+        vertex_ids: [u16::MAX; 26 * 26 * 26],
+    };
     for line in input.lines() {
         let (vertex, adjacent) = line.split_once(": ").unwrap();
         let vertex = graph_builder.get_vertex_id(vertex);
@@ -78,33 +81,37 @@ fn parse_graph(input: &str) -> Graph {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct Graph {
     vertices: usize,
-    adjacency: Vec<FxHashSet<usize>>,
+    adjacency: Vec<Vec<usize>>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-struct GraphBuilder<'a> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GraphBuilder {
     graph: Graph,
-    vertex_ids: FxHashMap<&'a str, usize>,
+    vertex_ids: [u16; 26 * 26 * 26],
 }
 
-impl<'a> GraphBuilder<'a> {
-    fn get_vertex_id<'b>(&'b mut self, vertex: &'a str) -> usize
-    where
-        'a: 'b,
-    {
-        *self.vertex_ids.entry(vertex).or_insert_with(|| {
-            let id = self.graph.vertices;
-            self.graph.vertices += 1;
-            self.graph
-                .adjacency
-                .resize_with(self.graph.vertices, Default::default);
-            id
-        })
+impl GraphBuilder {
+    fn get_vertex_id(&mut self, vertex: &str) -> usize {
+        let encoded = vertex
+            .as_bytes()
+            .iter()
+            .fold(0, |acc, &ch| acc * 26 + (ch - b'a') as u16) as usize;
+        let existing = self.vertex_ids[encoded];
+        if existing < u16::MAX {
+            return existing as usize;
+        }
+        let id = self.graph.vertices;
+        self.graph.vertices += 1;
+        self.graph
+            .adjacency
+            .resize_with(self.graph.vertices, Default::default);
+        self.vertex_ids[encoded] = id as u16;
+        id
     }
 
     fn insert_edge(&mut self, a: usize, b: usize) {
-        self.graph.adjacency[a].insert(b);
-        self.graph.adjacency[b].insert(a);
+        self.graph.adjacency[a].push(b);
+        self.graph.adjacency[b].push(a);
     }
 
     fn build(self) -> Graph {
@@ -115,7 +122,7 @@ impl<'a> GraphBuilder<'a> {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct NetworkFlow {
     vertices: usize,
-    adjacency: Vec<FxHashSet<usize>>,
+    adjacency: Vec<Vec<usize>>,
     flow: FxHashMap<(usize, usize), i16>,
     pred: Vec<Option<usize>>,
     queue: VecDeque<usize>,
