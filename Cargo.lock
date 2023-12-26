@@ -31,6 +31,7 @@ dependencies = [
  "ndarray-linalg",
  "num-integer",
  "pico-args",
+ "rand",
  "rayon",
  "smallvec",
  "thiserror",

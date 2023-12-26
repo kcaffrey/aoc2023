@@ -1,13 +1,18 @@
 use std::collections::VecDeque;
 
 use fxhash::FxHashMap;
+use rand::{seq::SliceRandom, thread_rng};
 
 advent_of_code::solution!(25, 1);
 
 pub fn part_one(input: &str) -> Option<usize> {
     let mut flow: NetworkFlow = parse_graph(input).into();
     let s = 0;
-    (1..flow.vertices).find_map(|t| find_cut_of_size(&mut flow, s, t, 3))
+    let mut vertices = (1..flow.vertices).collect::<Vec<_>>();
+    vertices.shuffle(&mut thread_rng());
+    vertices
+        .into_iter()
+        .find_map(|t| find_cut_of_size(&mut flow, s, t, 3))
 }
 
 fn find_cut_of_size(net: &mut NetworkFlow, s: usize, t: usize, cut: i16) -> Option<usize> {
