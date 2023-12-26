@@ -11,7 +11,7 @@ pub fn part_one(input: &str) -> Option<usize> {
 }
 
 fn find_cut_of_size(net: &mut NetworkFlow, s: usize, t: usize, cut: i16) -> Option<usize> {
-    net.flow.fill(0);
+    net.flow.clear();
 
     let mut flow = 0;
     while flow <= cut {
@@ -116,18 +116,18 @@ impl<'a> GraphBuilder<'a> {
 struct NetworkFlow {
     vertices: usize,
     adjacency: Vec<FxHashSet<usize>>,
-    flow: Vec<i16>,
+    flow: FxHashMap<(usize, usize), i16>,
     pred: Vec<Option<usize>>,
     queue: VecDeque<usize>,
 }
 
 impl NetworkFlow {
     fn flow(&self, a: usize, b: usize) -> i16 {
-        self.flow[a * self.vertices + b]
+        self.flow.get(&(a, b)).copied().unwrap_or_default()
     }
 
     fn add_flow(&mut self, a: usize, b: usize, df: i16) {
-        self.flow[a * self.vertices + b] += df;
+        *self.flow.entry((a, b)).or_default() += df;
     }
 }
 
@@ -135,7 +135,6 @@ impl From<Graph> for NetworkFlow {
     fn from(graph: Graph) -> Self {
         let mut ret = Self {
             vertices: graph.vertices,
-            flow: vec![0; graph.vertices * graph.vertices],
             pred: vec![None; graph.vertices],
             ..Default::default()
         };
