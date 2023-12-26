@@ -26,10 +26,7 @@ fn find_cut_of_size(net: &mut NetworkFlow, s: usize, t: usize, cut: i16) -> Opti
             }
             seen_vertices += 1;
             for &next in &net.adjacency[cur] {
-                if next != s
-                    && net.pred[next].is_none()
-                    && net.capacity(cur, next) > net.flow(cur, next)
-                {
+                if next != s && net.pred[next].is_none() && 1 > net.flow(cur, next) {
                     net.pred[next] = Some(cur);
                     net.queue.push_back(next);
                 }
@@ -47,7 +44,7 @@ fn find_cut_of_size(net: &mut NetworkFlow, s: usize, t: usize, cut: i16) -> Opti
         let mut df = i16::MAX;
         let mut cur = t;
         while let Some(prev) = net.pred[cur] {
-            df = df.min(net.capacity(prev, cur) - net.flow(prev, cur));
+            df = df.min(1 - net.flow(prev, cur));
             cur = prev;
         }
 
@@ -119,17 +116,12 @@ impl<'a> GraphBuilder<'a> {
 struct NetworkFlow {
     vertices: usize,
     adjacency: Vec<FxHashSet<usize>>,
-    capacity: Vec<i16>,
     flow: Vec<i16>,
     pred: Vec<Option<usize>>,
     queue: VecDeque<usize>,
 }
 
 impl NetworkFlow {
-    fn capacity(&self, a: usize, b: usize) -> i16 {
-        self.capacity[a * self.vertices + b]
-    }
-
     fn flow(&self, a: usize, b: usize) -> i16 {
         self.flow[a * self.vertices + b]
     }
@@ -143,16 +135,10 @@ impl From<Graph> for NetworkFlow {
     fn from(graph: Graph) -> Self {
         let mut ret = Self {
             vertices: graph.vertices,
-            capacity: vec![0; graph.vertices * graph.vertices],
             flow: vec![0; graph.vertices * graph.vertices],
             pred: vec![None; graph.vertices],
             ..Default::default()
         };
-        for v0 in 0..ret.vertices {
-            for &v1 in &graph.adjacency[v0] {
-                ret.capacity[v0 * ret.vertices + v1] = 1;
-            }
-        }
         ret.adjacency = graph.adjacency;
         ret
     }
