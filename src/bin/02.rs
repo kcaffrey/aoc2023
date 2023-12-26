@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use smallvec::SmallVec;
+use tinyvec::TinyVec;
 
 advent_of_code::solution!(2);
 
@@ -37,7 +37,7 @@ pub fn part_two(input: &str) -> Option<u32> {
     )
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq, PartialOrd)]
 struct Colors {
     red: u32,
     green: u32,
@@ -47,7 +47,7 @@ struct Colors {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Game {
     id: u32,
-    reveals: SmallVec<[Colors; 10]>,
+    reveals: TinyVec<[Colors; 10]>,
 }
 
 impl Game {
