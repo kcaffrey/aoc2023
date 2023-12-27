@@ -70,3 +70,11 @@ Part 1 was a slog of parsing and special cases, but nothing overly difficult. I 
 ## [Day 11](https://adventofcode.com/2023/day/11)
 
 Another day where part 1 is straightforward, but the numbers are "too large" to brute force part 2. [My solution](https://github.com/kcaffrey/aoc2023/blob/main/src/bin/11.rs) kept track of how many galaxies were in each row and column, then walked through the rows (and likewise for the columns) to produce row and column coordinates for each galaxy, adding a running offset as I went to account for the expansion. The trick I applied beyond this was using a linear solution to find the sum of distances rather than quadratic, after applying some algebra and iterating over the galaxies in a careful order to make sure that the coordinates were sorted implicitly.
+
+## [Day 12](https://adventofcode.com/2023/day/12)
+
+Brute force worked for part 1, but dynamic programming is required for part 2. It was a particularly tricky problem to solve, with a complex recurrence relation. The natural solution involved keeping track of the length of the current run of damaged springs when recursing, but this increased the state space (and reduced the effectiveness of memoization). [My solution](https://github.com/kcaffrey/aoc2023/blob/main/src/bin/12.rs) involved changing the recurrence to implicitly track whether runs of damaged springs matched the required counts as well as searching bottom-up iteratively instead of top-down recursively.
+
+## [Day 13](https://adventofcode.com/2023/day/13)
+
+I didn't use any special tricks for this puzzle. Part 2 was very similar to part 1, except it involved finding a mirroring where "error count" is 1 instead of 0. I [performed the search](https://github.com/kcaffrey/aoc2023/blob/main/src/bin/13.rs) in a way that would early terminate after the second error was found (in Rust, this was with an iterator that counted column errors for a row split where I used `.take(2).count() == 1; the second error would let us fail immediately).
